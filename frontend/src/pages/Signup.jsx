@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { Container, Paper, Typography, TextField, Button, Box, Link, Alert } from '@mui/material';
+import { Container, Paper, Typography, TextField, Button, Box, Link, Alert, InputAdornment, IconButton } from '@mui/material';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import AppLogo from '../components/AppLogo';
 
 export default function Signup() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [fullName, setFullName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const { signup } = useAuth();
@@ -16,7 +20,7 @@ export default function Signup() {
         e.preventDefault();
         try {
             await signup(email, password, fullName, phoneNumber);
-            navigate('/');
+            navigate('/chat');
         } catch (err) {
             setError('Failed to create account');
         }
@@ -25,6 +29,9 @@ export default function Signup() {
     return (
         <Container maxWidth="xs" sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+                    <AppLogo size={56} />
+                </Box>
                 <Typography variant="h5" align="center" gutterBottom fontWeight="bold" color="primary">
                     Sign Up
                 </Typography>
@@ -62,10 +69,23 @@ export default function Signup() {
                         required
                         fullWidth
                         label="Password"
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         autoComplete="new-password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        edge="end"
+                                        onClick={() => setShowPassword(s => !s)}
+                                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                    >
+                                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                                    </IconButton>
+                                </InputAdornment>
+                            )
+                        }}
                     />
                     <Button
                         type="submit"

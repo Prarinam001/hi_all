@@ -3,7 +3,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Chat from './pages/Chat';
+import Home from './pages/Home';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import HeaderBar from './components/HeaderBar';
 
 const darkTheme = createTheme({
   palette: {
@@ -35,15 +37,23 @@ const ProtectedRoute = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      <Route path="/" element={
+      <Route path="/chat" element={
         <ProtectedRoute>
           <Chat />
         </ProtectedRoute>
       } />
+      
     </Routes>
   );
+}
+
+function HomeRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <div />;
+  return user ? <Navigate to="/chat" replace /> : <Home />;
 }
 
 function App() {
@@ -52,6 +62,7 @@ function App() {
       <CssBaseline />
       <Router>
         <AuthProvider>
+          <HeaderBar />
           <AppRoutes />
         </AuthProvider>
       </Router>

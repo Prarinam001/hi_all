@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import UserSearch from '../components/UserSearch';
-import { Box, Paper, Typography, Avatar, IconButton } from '@mui/material';
+import { Box, Paper, Typography, Avatar, IconButton, Drawer, useTheme, useMediaQuery } from '@mui/material';
 import useConversations from '../hooks/useConversations';
 import ChatHeader from '../components/ChatHeader';
 import Sidebar from '../components/Sidebar';
@@ -10,9 +10,14 @@ import MessageInput from '../components/MessageInput';
 import CallOverlays from '../components/CallOverlays';
 import useWebSocket from '../hooks/useWebSocket';
 import usePeerConnection from '../hooks/usePeerConnection';
+import { Menu } from 'lucide-react';
+import AppLogo from '../components/AppLogo';
 
 export default function Chat() {
     const { user, logout, api } = useAuth();
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const theme = useTheme();
+    const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
     // websocket and peer connection are handled by hooks
     const [selectedUser, setSelectedUser] = useState(null);
     const [messages, setMessages] = useState({}); // { userId: [msgs] }
@@ -471,14 +476,33 @@ export default function Chat() {
 
     return (
         <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
-            {/* Sidebar */}
-            <Sidebar user={user} conversations={conversations} onSelect={setSelectedUser} onLogout={handleLogout} copiedEmail={copiedEmail} onCopy={copyEmailToClipboard} />
+            {/* Sidebar - permanent on md+, drawer on xs */}
+            <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
+                <Sidebar user={user} conversations={conversations} onSelect={setSelectedUser} onLogout={handleLogout} copiedEmail={copiedEmail} onCopy={copyEmailToClipboard} />
+            </Box>
+
+            <Drawer
+                open={mobileOpen}
+                onClose={() => setMobileOpen(false)}
+                ModalProps={{ keepMounted: true }}
+                sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { width: 300 } }}
+            >
+                <Sidebar
+                    user={user}
+                    conversations={conversations}
+                    onSelect={(u) => { setSelectedUser(u); setMobileOpen(false); }}
+                    onLogout={() => { handleLogout(); setMobileOpen(false); }}
+                    copiedEmail={copiedEmail}
+                    onCopy={copyEmailToClipboard}
+                    onClose={() => setMobileOpen(false)}
+                />
+            </Drawer>
 
             {/* Main Chat Area */}
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', bgcolor: '#0b141a', position: 'relative' }}>
                 {selectedUser ? (
                     <>
-                        <ChatHeader user={user} selectedUser={selectedUser} startCall={startCall} startVoiceCall={startVoiceCall} copiedEmail={copiedEmail} onCopy={copyEmailToClipboard} />
+                        <ChatHeader user={user} selectedUser={selectedUser} startCall={startCall} startVoiceCall={startVoiceCall} copiedEmail={copiedEmail} onCopy={copyEmailToClipboard} onSidebarToggle={() => setMobileOpen(true)} />
 
                         <MessageList messages={messages[selectedUser.id] || []} selectedUser={selectedUser} />
 
@@ -507,9 +531,18 @@ export default function Chat() {
                         />
                     </>
                 ) : (
-                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Typography color="text.secondary">Select a user to start chatting</Typography>
-                    </Box>
+                    <>
+                        {/* Mobile header with menu button when no user selected */}
+                        <Box sx={{ height: 64, bgcolor: 'background.paper', display: { xs: 'flex', md: 'none' }, alignItems: 'center', justifyContent: 'space-between', px: 2, borderBottom: 1, borderColor: 'divider' }}>
+                            <AppLogo size={40} />
+                            <IconButton onClick={() => setMobileOpen(true)} aria-label="Open conversations">
+                                <Menu />
+                            </IconButton>
+                        </Box>
+                        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography color="text.secondary">Select a user to start chatting</Typography>
+                        </Box>
+                    </>
                 )}
             </Box>
         </Box>
