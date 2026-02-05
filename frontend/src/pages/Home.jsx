@@ -19,9 +19,9 @@ export default function Home() {
                             </Typography>
 
                             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                                A WhatsApp-like app with real-time chat, group messaging, and peer-to-peer video calling.
-                                Secure authentication with JWT and lightweight SQLite backend. Fast, responsive UI built
-                                with React and small-footprint technologies for speedy performance.
+                                Connect with friends and family like never before! Chat instantly, make crystal-clear video 
+                                calls, and not saving your chat history. Say hello, share your day, and stay close to the people you care about—
+                                all in one beautiful app.
                             </Typography>
 
                             <Box sx={{ textAlign: 'left' }}>
