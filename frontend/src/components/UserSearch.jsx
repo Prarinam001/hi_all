@@ -17,7 +17,7 @@ export default function UserSearch({ onUserSelect }) {
         setMsg('');
         setResult(null);
         try {
-            const res = await api.get(`/users/search?email=${email}`);
+            const res = await api.get(`/api/account/search?email=${email}`);
             setResult(res.data);
         } catch (err) {
             if (err.response && err.response.status === 404) {
@@ -47,12 +47,12 @@ export default function UserSearch({ onUserSelect }) {
             {loading && <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}><CircularProgress size={20} /></Box>}
             {msg && <Alert severity="info" sx={{ mt: 1, py: 0 }}>{msg}</Alert>}
             {result && (
-                <List sx={{ mt: 1, cursor: 'pointer', bgcolor: 'background.paper', borderRadius: 1 }} onClick={() => onUserSelect(result)}>
+                <List sx={{ mt: 1, cursor: 'pointer', bgcolor: 'background.paper', borderRadius: 1 }} onClick={() => onUserSelect({ ...result, full_name: result.name || result.full_name })}>
                     <ListItem alignItems="center" secondaryAction={<PersonAdd color="primary" />}>
                         <ListItemAvatar>
-                            <Avatar>{result.full_name[0].toUpperCase()}</Avatar>
+                            <Avatar>{(result.full_name || result.name || '?')[0].toUpperCase()}</Avatar>
                         </ListItemAvatar>
-                        <ListItemText primary={result.full_name} secondary={result.email} />
+                        <ListItemText primary={result.full_name || result.name} secondary={result.email} />
                     </ListItem>
                 </List>
             )}

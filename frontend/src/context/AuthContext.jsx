@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext } from 'react';
-import api, { setAuthToken } from '../services/api';
+import api from '../services/api';
 
 const AuthContext = createContext();
 
@@ -7,46 +7,29 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem('token'));
     const [loading, setLoading] = useState(true);
-
-    // use shared api instance
-    if (token) setAuthToken(token);
 
     useEffect(() => {
         const fetchUser = async () => {
-            if (!token) {
-                setLoading(false);
-                return;
-            }
             try {
-                    const res = await api.get('/users/me');
+                const res = await api.get('/api/account/profile');
                 setUser(res.data);
             } catch (error) {
                 console.error("Auth check failed", error);
-                logout();
+                setUser(null);
             } finally {
                 setLoading(false);
             }
         };
         fetchUser();
-    }, [token]);
+    }, []);
 
     const login = async (email, password) => {
-        const formData = new FormData();
-        formData.append('username', email); // OAuth2 expects username
-        formData.append('password', password);
-        const res = await api.post('/token', formData);
-        const newToken = res.data.access_token;
-        setToken(newToken);
-        localStorage.setItem('token', newToken);
-        setAuthToken(newToken);
+        const res = await api.post('/api/account/login', { email, password });
         
         // Fetch user immediately to ensure it's available before navigation
         try {
-            const userRes = await api.get('/users/me', {
-                headers: { Authorization: `Bearer ${newToken}` }
-            });
+            const userRes = await api.get('/api/account/profile');
             setUser(userRes.data);
         } catch (error) {
             console.error("Failed to fetch user after login", error);
@@ -55,19 +38,22 @@ export const AuthProvider = ({ children }) => {
     };
 
     const signup = async (email, password, fullName, phoneNumber) => {
-        await api.post('/signup', { email, password, full_name: fullName, phone_number: phoneNumber });
+        await api.post('/api/account/register', { email, password, full_name: fullName, phone_number: phoneNumber });
         await login(email, password);
     };
 
-    const logout = () => {
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem('token');
-        setAuthToken(null);
+    const logout = async () => {
+        try {
+            await api.post('/api/account/logout');
+        } catch (error) {
+            console.error("Logout failed", error);
+        } finally {
+            setUser(null);
+        }
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, signup, logout, loading, token, api }}>
+        <AuthContext.Provider value={{ user, login, signup, logout, loading, api }}>
             {!loading && children}
         </AuthContext.Provider>
     );

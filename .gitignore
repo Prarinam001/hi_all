@@ -2,7 +2,7 @@
 ./backend/.pytest_cache
 ./backend/chat.db
 ./backend/__pycache__
-./backend/venv
+./backend/.venv
 ./backend/.env
 ./backend/test.db
 ./.vscode

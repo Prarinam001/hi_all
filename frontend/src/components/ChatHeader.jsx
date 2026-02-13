@@ -11,13 +11,17 @@ export default function ChatHeader({ user, selectedUser, startCall, startVoiceCa
                     <Menu />
                 </IconButton>
                 <EmailTooltip email={selectedUser?.email} copiedEmail={copiedEmail} onCopy={onCopy}>
-                    <Avatar sx={{ cursor: 'pointer' }}>{selectedUser?.full_name?.[0]?.toUpperCase()}</Avatar>
+                    <Avatar sx={{ cursor: 'pointer' }}>{(selectedUser?.name || selectedUser?.full_name)?.[0]?.toUpperCase()}</Avatar>
                 </EmailTooltip>
-                <Typography variant="subtitle1" fontWeight="bold">{selectedUser?.full_name}</Typography>
+                <Typography variant="subtitle1" fontWeight="bold">{selectedUser?.name || selectedUser?.full_name}</Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
-                <IconButton onClick={() => startCall('video')} title="Start Video Call"><Video /></IconButton>
-                <IconButton onClick={startVoiceCall} title="Start Voice Call"><Phone /></IconButton>
+                {!selectedUser?.isGroup && (
+                    <>
+                        <IconButton onClick={() => startCall('video')} title="Start Video Call"><Video /></IconButton>
+                        <IconButton onClick={startVoiceCall} title="Start Voice Call"><Phone /></IconButton>
+                    </>
+                )}
                 <IconButton><MoreVertical /></IconButton>
             </Box>
         </Box>

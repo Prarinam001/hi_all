@@ -12,6 +12,7 @@ import useWebSocket from '../hooks/useWebSocket';
 import usePeerConnection from '../hooks/usePeerConnection';
 import { Menu } from 'lucide-react';
 import AppLogo from '../components/AppLogo';
+import { getGroups } from '../services/groupService';
 
 export default function Chat() {
     const { user, logout, api } = useAuth();
@@ -22,6 +23,7 @@ export default function Chat() {
     const [selectedUser, setSelectedUser] = useState(null);
     const [messages, setMessages] = useState({}); // { userId: [msgs] }
     const [contacts, setContacts] = useState({}); // { userId: { name, email } }
+    const [groups, setGroups] = useState([]);
     const { conversations, setConversations, fetchConversations, saveAllConversations } = useConversations();
     const [input, setInput] = useState('');
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -48,18 +50,32 @@ export default function Chat() {
     useEffect(() => { sendRef.current = send; }, [send]);
 
     useEffect(() => {
+        const loadGroups = async () => {
+            try {
+                const res = await getGroups();
+                setGroups(Array.isArray(res) ? res : []);
+            } catch (err) {
+                console.error("Failed to load groups", err);
+                setGroups([]);
+            }
+        };
+        loadGroups();
+    }, [user]);
+
+    useEffect(() => {
         wsMessageRef.current = async (data) => {
             if (!data) return;
             if (data.type === 'chat') {
                 setMessages(prev => {
                     const otherId = data.sender_id === user.id ? data.recipient_id : data.sender_id;
-                    const newMsg = { 
-                        ...data, 
+                    const newMsg = {
+                        ...data,
                         isMine: data.sender_id === user.id,
                         sender_name: data.sender_name || 'Unknown'
                     };
-                    const list = prev[otherId] || [];
-                    return { ...prev, [otherId]: [...list, newMsg] };
+                    const listKey = data.group_id ? `group_${data.group_id}` : otherId;
+                    const list = prev[listKey] || [];
+                    return { ...prev, [listKey]: [...list, newMsg] };
                 });
 
                 // Track contact information and update conversations locally
@@ -160,10 +176,16 @@ export default function Chat() {
             type: 'chat',
             content: input,
             sender_id: user.id,
-            sender_name: user.full_name,
+            sender_name: user.full_name || user.name,
             sender_email: user.email,
-            recipient_id: selectedUser.id,
-            target_id: selectedUser.id,
+            type: 'chat',
+            content: input,
+            sender_id: user.id,
+            sender_name: user.full_name || user.name,
+            sender_email: user.email,
+            recipient_id: selectedUser.isGroup ? null : selectedUser.id,
+            group_id: selectedUser.isGroup ? selectedUser.id : null,
+            target_id: selectedUser.isGroup ? null : selectedUser.id,
             timestamp: new Date().toISOString()
         };
 
@@ -204,8 +226,9 @@ export default function Chat() {
 
         // Optimistic update
         setMessages(prev => {
-            const list = prev[selectedUser.id] || [];
-            return { ...prev, [selectedUser.id]: [...list, { ...msg, isMine: true }] };
+            const listKey = selectedUser.isGroup ? `group_${selectedUser.id}` : selectedUser.id;
+            const list = prev[listKey] || [];
+            return { ...prev, [listKey]: [...list, { ...msg, isMine: true }] };
         });
         setInput('');
     };
@@ -215,9 +238,9 @@ export default function Chat() {
         try {
             setCallType(type);
             setIsInCall(true);
-            
+
             // Get media constraints based on call type
-            const constraints = type === 'video' 
+            const constraints = type === 'video'
                 ? {
                     video: { width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: {
@@ -233,7 +256,7 @@ export default function Chat() {
                         autoGainControl: true
                     }
                 };
-            
+
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             console.log('Got user media - audio tracks:', stream.getAudioTracks().length, 'video tracks:', stream.getVideoTracks().length);
             if (localVideo.current && type === 'video') {
@@ -289,7 +312,7 @@ export default function Chat() {
             }
 
             setIsInCall(true);
-            
+
             // Always request audio, video only if video call
             const callTypeToUse = callType || incomingCall.call_type || 'video';
             const constraints = {
@@ -300,28 +323,28 @@ export default function Chat() {
                 },
                 video: callTypeToUse === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false
             };
-            
+
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             if (localVideo.current && callTypeToUse === 'video') {
                 localVideo.current.srcObject = stream;
             }
 
-                const pc = peer.create();
-                peer.addLocalStream(stream);
+            const pc = peer.create();
+            peer.addLocalStream(stream);
 
-                await peer.setRemoteDescription(incomingCall.offer);
+            await peer.setRemoteDescription(incomingCall.offer);
 
-                const answer = await peer.createAnswer();
+            const answer = await peer.createAnswer();
 
-                const answerType = (callTypeToUse === 'video') ? 'answer' : 'voice-answer';
-                const s = sendRef.current;
-                if (s) s({
-                    type: answerType,
-                    answer: { type: answer.type, sdp: answer.sdp },
-                    target_id: incomingCall.sender_id,
-                    sender_id: user.id,
-                    sender_name: user.full_name
-                });
+            const answerType = (callTypeToUse === 'video') ? 'answer' : 'voice-answer';
+            const s = sendRef.current;
+            if (s) s({
+                type: answerType,
+                answer: { type: answer.type, sdp: answer.sdp },
+                target_id: incomingCall.sender_id,
+                sender_id: user.id,
+                sender_name: user.full_name
+            });
 
             // Set selected user to incoming caller
             if (!selectedUser) {
@@ -478,7 +501,7 @@ export default function Chat() {
         <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
             {/* Sidebar - permanent on md+, drawer on xs */}
             <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
-                <Sidebar user={user} conversations={conversations} onSelect={setSelectedUser} onLogout={handleLogout} copiedEmail={copiedEmail} onCopy={copyEmailToClipboard} />
+                <Sidebar user={user} conversations={conversations} groups={groups} onSelect={setSelectedUser} onLogout={handleLogout} copiedEmail={copiedEmail} onCopy={copyEmailToClipboard} onGroupCreated={(g) => { setGroups(prev => [...prev, g]); setSelectedUser({ ...g, isGroup: true }); }} />
             </Box>
 
             <Drawer
@@ -490,11 +513,16 @@ export default function Chat() {
                 <Sidebar
                     user={user}
                     conversations={conversations}
+                    groups={groups}
                     onSelect={(u) => { setSelectedUser(u); setMobileOpen(false); }}
                     onLogout={() => { handleLogout(); setMobileOpen(false); }}
                     copiedEmail={copiedEmail}
                     onCopy={copyEmailToClipboard}
                     onClose={() => setMobileOpen(false)}
+                    onGroupCreated={(g) => {
+                        setGroups(prev => [...prev, g]);
+                        setSelectedUser({ ...g, isGroup: true });
+                    }}
                 />
             </Drawer>
 
@@ -504,7 +532,7 @@ export default function Chat() {
                     <>
                         <ChatHeader user={user} selectedUser={selectedUser} startCall={startCall} startVoiceCall={startVoiceCall} copiedEmail={copiedEmail} onCopy={copyEmailToClipboard} onSidebarToggle={() => setMobileOpen(true)} />
 
-                        <MessageList messages={messages[selectedUser.id] || []} selectedUser={selectedUser} />
+                        <MessageList messages={messages[selectedUser.isGroup ? `group_${selectedUser.id}` : selectedUser.id] || []} selectedUser={selectedUser} />
 
                         <MessageInput
                             input={input}

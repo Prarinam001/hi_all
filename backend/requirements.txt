@@ -1,10 +1,15 @@
-fastapi
-uvicorn
+fastapi[standard]
+alembic
+aiomysql
+bcrypt
 sqlalchemy
+aiosqlite
 passlib[bcrypt]
+cryptography
 python-jose[cryptography]
 python-multipart
 email-validator
 websockets
 pytest
 httpx
+python-decouple

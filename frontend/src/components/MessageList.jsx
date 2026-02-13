@@ -9,7 +9,7 @@ export default function MessageList({ messages = [], selectedUser }) {
                     <Paper sx={{ p: 1, px: 2, maxWidth: '60%', bgcolor: msg.isMine ? 'primary.dark' : 'background.paper', borderRadius: 2 }}>
                         {!msg.isMine && (
                             <Typography variant="caption" sx={{ display: 'block', fontWeight: 'bold', color: 'primary.main', mb: 0.5 }}>
-                                {msg.sender_name || selectedUser?.full_name}
+                                {msg.sender_name || selectedUser?.full_name || selectedUser?.name || 'Unknown'}
                             </Typography>
                         )}
                         <Typography variant="body1">{msg.content}</Typography>
