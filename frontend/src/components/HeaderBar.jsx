@@ -4,6 +4,19 @@ import { Link as RouterLink } from 'react-router-dom';
 import AppLogo from './AppLogo';
 import { useAuth } from '../context/AuthContext';
 
+const styles = {
+    header: {
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        p: 2,
+        bgcolor: 'background.paper',
+        borderBottom: 1,
+        borderColor: 'divider'
+    }
+};
+
 export default function HeaderBar() {
     const { user, logout, loading } = useAuth();
 
@@ -11,7 +24,7 @@ export default function HeaderBar() {
     if (loading || user) return null;
 
     return (
-        <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={styles.header}>
             <AppLogo size={40} />
 
             <Box>

@@ -6,6 +6,34 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import AppLogo from '../components/AppLogo';
 
+const styles = {
+    container: {
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    paper: {
+        p: 4,
+        width: '100%'
+    },
+    logoBox: {
+        display: 'flex',
+        justifyContent: 'center',
+        mb: 1
+    },
+    alert: {
+        mb: 2
+    },
+    form: {
+        mt: 1
+    },
+    submitButton: {
+        mt: 3,
+        mb: 2
+    }
+};
+
 export default function Signup() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -27,16 +55,16 @@ export default function Signup() {
     };
 
     return (
-        <Container maxWidth="xs" sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+        <Container maxWidth="xs" sx={styles.container}>
+            <Paper elevation={3} sx={styles.paper}>
+                <Box sx={styles.logoBox}>
                     <AppLogo size={56} />
                 </Box>
                 <Typography variant="h5" align="center" gutterBottom fontWeight="bold" color="primary">
                     Sign Up
                 </Typography>
-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+                {error && <Alert severity="error" sx={styles.alert}>{error}</Alert>}
+                <Box component="form" onSubmit={handleSubmit} sx={styles.form}>
                     <TextField
                         margin="normal"
                         required
@@ -91,7 +119,7 @@ export default function Signup() {
                         type="submit"
                         fullWidth
                         variant="contained"
-                        sx={{ mt: 3, mb: 2 }}
+                        sx={styles.submitButton}
                     >
                         Sign Up
                     </Button>

@@ -3,6 +3,36 @@ import { useAuth } from '../context/AuthContext';
 import { Box, TextField, IconButton, Typography, Avatar, List, ListItem, ListItemAvatar, ListItemText, CircularProgress, Alert } from '@mui/material';
 import { Search, PersonAdd } from '@mui/icons-material';
 
+const styles = {
+    container: {
+        p: 2,
+        borderBottom: 1,
+        borderColor: 'divider'
+    },
+    searchForm: {
+        display: 'flex',
+        alignItems: 'center'
+    },
+    searchIcon: {
+        mr: 1
+    },
+    loaderContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        mt: 1
+    },
+    alert: {
+        mt: 1,
+        py: 0
+    },
+    resultList: {
+        mt: 1,
+        cursor: 'pointer',
+        bgcolor: 'background.paper',
+        borderRadius: 1
+    }
+};
+
 export default function UserSearch({ onUserSelect }) {
     const [email, setEmail] = useState('');
     const [result, setResult] = useState(null);
@@ -31,8 +61,8 @@ export default function UserSearch({ onUserSelect }) {
     };
 
     return (
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', alignItems: 'center' }}>
+        <Box sx={styles.container}>
+            <Box component="form" onSubmit={handleSearch} sx={styles.searchForm}>
                 <TextField
                     fullWidth
                     size="small"
@@ -40,14 +70,14 @@ export default function UserSearch({ onUserSelect }) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     InputProps={{
-                        startAdornment: <Search color="action" sx={{ mr: 1 }} />,
+                        startAdornment: <Search color="action" sx={styles.searchIcon} />,
                     }}
                 />
             </Box>
-            {loading && <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}><CircularProgress size={20} /></Box>}
-            {msg && <Alert severity="info" sx={{ mt: 1, py: 0 }}>{msg}</Alert>}
+            {loading && <Box sx={styles.loaderContainer}><CircularProgress size={20} /></Box>}
+            {msg && <Alert severity="info" sx={styles.alert}>{msg}</Alert>}
             {result && (
-                <List sx={{ mt: 1, cursor: 'pointer', bgcolor: 'background.paper', borderRadius: 1 }} onClick={() => onUserSelect({ ...result, full_name: result.name || result.full_name })}>
+                <List sx={styles.resultList} onClick={() => onUserSelect({ ...result, full_name: result.name || result.full_name })}>
                     <ListItem alignItems="center" secondaryAction={<PersonAdd color="primary" />}>
                         <ListItemAvatar>
                             <Avatar>{(result.full_name || result.name || '?')[0].toUpperCase()}</Avatar>

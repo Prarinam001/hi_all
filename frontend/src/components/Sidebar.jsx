@@ -6,6 +6,52 @@ import CreateGroupModal from './CreateGroupModal';
 import EmailTooltip from './EmailTooltip';
 import AppLogo from './AppLogo';
 
+const styles = {
+    sidebarContainer: {
+        width: { xs: '100%', md: 320 },
+        minWidth: { md: 280 },
+        borderRight: 1,
+        borderColor: 'divider',
+        display: 'flex',
+        flexDirection: 'column'
+    },
+    header: {
+        height: 64,
+        bgcolor: 'background.paper',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        px: 2
+    },
+    headerActions: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1
+    },
+    closeButton: {
+        display: { xs: 'inline-flex', md: 'none' }
+    },
+    avatar: {
+        cursor: 'pointer'
+    },
+    createGroupButton: {
+        textTransform: 'none'
+    },
+    list: {
+        flex: 1,
+        overflowY: 'auto',
+        px: 1
+    },
+    listItemIcon: {
+        minWidth: 32
+    },
+    groupAvatar: {
+        width: 32,
+        height: 32,
+        bgcolor: 'secondary.main'
+    }
+};
+
 export default function Sidebar({ user, conversations = [], groups = [], onSelect, onLogout, copiedEmail, onCopy, onClose, onGroupCreated }) {
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showGroups, setShowGroups] = useState(true);
@@ -14,18 +60,18 @@ export default function Sidebar({ user, conversations = [], groups = [], onSelec
     if (!user) return null;
 
     return (
-        <Box sx={{ width: { xs: '100%', md: 320 }, minWidth: { md: 280 }, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ height: 64, bgcolor: 'background.paper', display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2 }}>
+        <Box sx={styles.sidebarContainer}>
+            <Box sx={styles.header}>
                 <AppLogo size={40} />
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={styles.headerActions}>
                     {onClose && (
-                        <IconButton onClick={onClose} sx={{ display: { xs: 'inline-flex', md: 'none' } }} aria-label="Close conversations">
+                        <IconButton onClick={onClose} sx={styles.closeButton} aria-label="Close conversations">
                             <X />
                         </IconButton>
                     )}
                     <EmailTooltip email={user?.email} copiedEmail={copiedEmail} onCopy={onCopy}>
-                        <Avatar sx={{ cursor: 'pointer' }}>{user?.email?.[0]?.toUpperCase()}</Avatar>
+                        <Avatar sx={styles.avatar}>{user?.email?.[0]?.toUpperCase()}</Avatar>
                     </EmailTooltip>
                     <IconButton onClick={onLogout} title="Logout"><LogOut /></IconButton>
                 </Box>
@@ -39,16 +85,16 @@ export default function Sidebar({ user, conversations = [], groups = [], onSelec
                     variant="outlined"
                     startIcon={<Plus size={18} />}
                     onClick={() => setShowCreateGroup(true)}
-                    sx={{ textTransform: 'none' }}
+                    sx={styles.createGroupButton}
                 >
                     Create Group
                 </Button>
             </Box>
 
-            <List sx={{ flex: 1, overflowY: 'auto', px: 1 }}>
+            <List sx={styles.list}>
                 {/* Groups Section */}
                 <ListItem button onClick={() => setShowGroups(!showGroups)}>
-                    <ListItemIcon sx={{ minWidth: 32 }}><Users size={18} /></ListItemIcon>
+                    <ListItemIcon sx={styles.listItemIcon}><Users size={18} /></ListItemIcon>
                     <ListItemText primary="Groups" />
                 </ListItem>
                 <Collapse in={showGroups} timeout="auto" unmountOnExit>
@@ -57,7 +103,7 @@ export default function Sidebar({ user, conversations = [], groups = [], onSelec
                             groups.map(group => (
                                 <ListItem key={group.id} button sx={{ pl: 4 }} onClick={() => onSelect({ ...group, isGroup: true })}>
                                     <ListItemAvatar>
-                                        <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>{group.name[0]?.toUpperCase()}</Avatar>
+                                        <Avatar sx={styles.groupAvatar}>{group.name[0]?.toUpperCase()}</Avatar>
                                     </ListItemAvatar>
                                     <ListItemText primary={group.name} secondary={`${group.members ? group.members.length : ''} members`} />
                                 </ListItem>
@@ -74,7 +120,7 @@ export default function Sidebar({ user, conversations = [], groups = [], onSelec
 
                 {/* Direct Messages Section */}
                 <ListItem button onClick={() => setShowDirect(!showDirect)}>
-                    <ListItemIcon sx={{ minWidth: 32 }}><MessageSquare size={18} /></ListItemIcon>
+                    <ListItemIcon sx={styles.listItemIcon}><MessageSquare size={18} /></ListItemIcon>
                     <ListItemText primary="Direct Messages" />
                 </ListItem>
                 <Collapse in={showDirect} timeout="auto" unmountOnExit>

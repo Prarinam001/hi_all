@@ -14,6 +14,54 @@ import { Menu } from 'lucide-react';
 import AppLogo from '../components/AppLogo';
 import { getGroups } from '../services/groupService';
 
+const styles = {
+    chatPageContainer: {
+        display: 'flex',
+        height: '100vh',
+        overflow: 'hidden',
+        bgcolor: 'background.default'
+    },
+    sidebarDesktop: {
+        display: { xs: 'none', md: 'flex' }
+    },
+    drawer: {
+        display: { xs: 'block', md: 'none' },
+        '& .MuiDrawer-paper': { width: 300 }
+    },
+    mainChatArea: {
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: '#0b141a',
+        position: 'relative'
+    },
+    mobileHeader: {
+        height: 64,
+        bgcolor: 'background.paper',
+        display: { xs: 'flex', md: 'none' },
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        px: 2,
+        borderBottom: 1,
+        borderColor: 'divider'
+    },
+    emptyChatPlaceholder: {
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    tooltipContent: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1
+    },
+    tooltipCopyButton: {
+        color: 'white',
+        p: 0.5
+    }
+};
+
 export default function Chat() {
     const { user, logout, api } = useAuth();
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -173,11 +221,6 @@ export default function Chat() {
         if (!input || !selectedUser) return;
 
         const msg = {
-            type: 'chat',
-            content: input,
-            sender_id: user.id,
-            sender_name: user.full_name || user.name,
-            sender_email: user.email,
             type: 'chat',
             content: input,
             sender_id: user.id,
@@ -477,7 +520,7 @@ export default function Chat() {
     const EmailTooltip = ({ email, children }) => (
         <Tooltip
             title={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={styles.tooltipContent}>
                     <Typography variant="body2">{email}</Typography>
                     <IconButton
                         size="small"
@@ -485,7 +528,7 @@ export default function Chat() {
                             e.stopPropagation();
                             copyEmailToClipboard(email);
                         }}
-                        sx={{ color: 'white', p: 0.5 }}
+                        sx={styles.tooltipCopyButton}
                     >
                         {copiedEmail === email ? <Check size={16} /> : <Copy size={16} />}
                     </IconButton>
@@ -498,9 +541,9 @@ export default function Chat() {
     );
 
     return (
-        <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
+        <Box sx={styles.chatPageContainer}>
             {/* Sidebar - permanent on md+, drawer on xs */}
-            <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
+            <Box sx={styles.sidebarDesktop}>
                 <Sidebar user={user} conversations={conversations} groups={groups} onSelect={setSelectedUser} onLogout={handleLogout} copiedEmail={copiedEmail} onCopy={copyEmailToClipboard} onGroupCreated={(g) => { setGroups(prev => [...prev, g]); setSelectedUser({ ...g, isGroup: true }); }} />
             </Box>
 
@@ -508,7 +551,7 @@ export default function Chat() {
                 open={mobileOpen}
                 onClose={() => setMobileOpen(false)}
                 ModalProps={{ keepMounted: true }}
-                sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { width: 300 } }}
+                sx={styles.drawer}
             >
                 <Sidebar
                     user={user}
@@ -527,7 +570,7 @@ export default function Chat() {
             </Drawer>
 
             {/* Main Chat Area */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', bgcolor: '#0b141a', position: 'relative' }}>
+            <Box sx={styles.mainChatArea}>
                 {selectedUser ? (
                     <>
                         <ChatHeader user={user} selectedUser={selectedUser} startCall={startCall} startVoiceCall={startVoiceCall} copiedEmail={copiedEmail} onCopy={copyEmailToClipboard} onSidebarToggle={() => setMobileOpen(true)} />
@@ -561,13 +604,13 @@ export default function Chat() {
                 ) : (
                     <>
                         {/* Mobile header with menu button when no user selected */}
-                        <Box sx={{ height: 64, bgcolor: 'background.paper', display: { xs: 'flex', md: 'none' }, alignItems: 'center', justifyContent: 'space-between', px: 2, borderBottom: 1, borderColor: 'divider' }}>
+                        <Box sx={styles.mobileHeader}>
                             <AppLogo size={40} />
                             <IconButton onClick={() => setMobileOpen(true)} aria-label="Open conversations">
                                 <Menu />
                             </IconButton>
                         </Box>
-                        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Box sx={styles.emptyChatPlaceholder}>
                             <Typography color="text.secondary">Select a user to start chatting</Typography>
                         </Box>
                     </>

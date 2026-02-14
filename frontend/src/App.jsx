@@ -4,7 +4,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Chat from './pages/Chat';
 import Home from './pages/Home';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress } from '@mui/material';
 import HeaderBar from './components/HeaderBar';
 
 const darkTheme = createTheme({
@@ -29,7 +29,11 @@ const darkTheme = createTheme({
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div>Loading...</div>;
+  if (loading) return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <CircularProgress />
+    </Box>
+  );
   if (!user) return <Navigate to="/login" />;
   return children;
 };
@@ -45,14 +49,18 @@ function AppRoutes() {
           <Chat />
         </ProtectedRoute>
       } />
-      
+
     </Routes>
   );
 }
 
 function HomeRedirect() {
   const { user, loading } = useAuth();
-  if (loading) return <div />;
+  if (loading) return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <CircularProgress />
+    </Box>
+  );
   return user ? <Navigate to="/chat" replace /> : <Home />;
 }
 
