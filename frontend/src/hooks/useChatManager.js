@@ -22,6 +22,9 @@ export default function useChatManager(user, api, setConversations) {
     }, [user]);
 
     const handleChatMessage = useCallback((data) => {
+        // Skip echo of own messages to avoid duplication (already added optimistically in sendMessage)
+        if (data.sender_id === user.id) return;
+
         setMessages(prev => {
             const otherId = data.sender_id === user.id ? data.recipient_id : data.sender_id;
             const newMsg = {
