@@ -49,11 +49,22 @@ export default function Chat() {
         contacts,
         groups,
         setGroups,
+        addGroup,
         input,
         setInput,
         handleChatMessage,
-        sendMessage
-    } = useChatManager(user, api, setConversations);
+        sendMessage,
+        loadLocalMessagesForUser,
+        addMember,
+        groupLeave,
+        unreads
+    } = useChatManager(user, api, setConversations, selectedUser);
+
+    useEffect(() => {
+        if (selectedUser) {
+            loadLocalMessagesForUser(selectedUser.id, selectedUser.isGroup);
+        }
+    }, [selectedUser, loadLocalMessagesForUser]);
 
     const sendRef = useRef(null);
     const { send } = useWebSocket(user?.id, (data) => {
@@ -100,11 +111,6 @@ export default function Chat() {
     };
 
     const handleLogout = async () => {
-        try {
-            await saveAllConversations(messages, contacts);
-        } catch (err) {
-            console.error('Error saving conversations on logout:', err);
-        }
         logout();
     };
 
@@ -125,7 +131,8 @@ export default function Chat() {
                     onLogout={handleLogout}
                     copiedEmail={copiedEmail}
                     onCopy={copyEmailToClipboard}
-                    onGroupCreated={(g) => { setGroups(prev => [...prev, g]); setSelectedUser({ ...g, isGroup: true }); }}
+                    unreads={unreads}
+                    onGroupCreated={(g) => { addGroup(g); setSelectedUser({ ...g, isGroup: true }); }}
                 />
             </Box>
 
@@ -143,11 +150,9 @@ export default function Chat() {
                     onLogout={() => { handleLogout(); setMobileOpen(false); }}
                     copiedEmail={copiedEmail}
                     onCopy={copyEmailToClipboard}
+                    unreads={unreads}
                     onClose={() => setMobileOpen(false)}
-                    onGroupCreated={(g) => {
-                        setGroups(prev => [...prev, g]);
-                        setSelectedUser({ ...g, isGroup: true });
-                    }}
+                    onGroupCreated={(g) => { addGroup(g); setSelectedUser({ ...g, isGroup: true }); }}
                 />
             </Drawer>
 
@@ -162,6 +167,15 @@ export default function Chat() {
                             copiedEmail={copiedEmail}
                             onCopy={copyEmailToClipboard}
                             onSidebarToggle={() => setMobileOpen(true)}
+                            onAddMember={addMember}
+                            onLeaveGroup={async (id) => {
+                                try {
+                                    await groupLeave(id);
+                                    setSelectedUser(null);
+                                } catch (err) {
+                                    alert("Failed to leave group");
+                                }
+                            }}
                         />
 
                         <MessageList

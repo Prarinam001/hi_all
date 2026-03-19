@@ -38,9 +38,13 @@ class Group(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255))
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    
-    members: Mapped[List["GroupMember"]] = relationship("GroupMember", back_populates="group")
-    messages: Mapped[List["Message"]] = relationship("Message", back_populates="group")
+    # last_message: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # last_message_time: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, 
+    default=datetime.datetime.utcnow, nullable=True)
+
+    members: Mapped[List["GroupMember"]] = relationship("GroupMember", back_populates="group", cascade="all, delete-orphan")
+    messages: Mapped[List["Message"]] = relationship("Message", back_populates="group", cascade="all, delete-orphan")
 
 class GroupMember(Base):
     __tablename__ = "group_members"

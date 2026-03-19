@@ -47,7 +47,7 @@ export default function MessageList({ messages = [], selectedUser }) {
                         )}
                         <Typography variant="body1">{msg.content}</Typography>
                         <Typography variant="caption" sx={styles.timestamp}>
-                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                         </Typography>
                     </Paper>
                 </Box>

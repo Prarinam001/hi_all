@@ -8,4 +8,7 @@
 ./.vscode
 ./backend/alembic/versions
 ./backend/uv.lock
+./backend/app/__pycache__
+./backend/app/account/__pycache__
+./backend/app/chat/__pycache__
 

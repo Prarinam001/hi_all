@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Avatar, IconButton, List, ListItem, ListItemText, Typography, Button, Divider, ListItemIcon, Collapse, ListItemAvatar } from '@mui/material';
+import { Box, Avatar, IconButton, List, ListItem, ListItemText, Typography, Button, Divider, ListItemIcon, Collapse, ListItemAvatar, Badge } from '@mui/material';
 import { LogOut, X, Users, MessageSquare, Plus } from 'lucide-react'; // Added icons
 import UserSearch from '../components/UserSearch';
 import CreateGroupModal from './CreateGroupModal';
@@ -52,7 +52,7 @@ const styles = {
     }
 };
 
-export default function Sidebar({ user, conversations = [], groups = [], onSelect, onLogout, copiedEmail, onCopy, onClose, onGroupCreated }) {
+export default function Sidebar({ user, conversations = [], groups = [], unreads = {}, onSelect, onLogout, copiedEmail, onCopy, onClose, onGroupCreated }) {
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showGroups, setShowGroups] = useState(true);
     const [showDirect, setShowDirect] = useState(true);
@@ -103,7 +103,9 @@ export default function Sidebar({ user, conversations = [], groups = [], onSelec
                             groups.map(group => (
                                 <ListItem key={group.id} button sx={{ pl: 4 }} onClick={() => onSelect({ ...group, isGroup: true })}>
                                     <ListItemAvatar>
-                                        <Avatar sx={styles.groupAvatar}>{group.name[0]?.toUpperCase()}</Avatar>
+                                        <Badge color="error" variant="dot" invisible={!unreads[`group_${group.id}`]}>
+                                            <Avatar sx={styles.groupAvatar}>{group.name[0]?.toUpperCase()}</Avatar>
+                                        </Badge>
                                     </ListItemAvatar>
                                     <ListItemText primary={group.name} secondary={`${group.members ? group.members.length : ''} members`} />
                                 </ListItem>
@@ -128,7 +130,9 @@ export default function Sidebar({ user, conversations = [], groups = [], onSelec
                         {conversations.length > 0 ? (
                             conversations.map(conv => (
                                 <ListItem key={conv.other_user_id} button divider sx={{ pl: 4 }} onClick={() => onSelect({ id: conv.other_user_id, full_name: conv.other_user_name || conv.name, email: conv.other_user_email, isGroup: false })}>
-                                    <ListItemText primary={conv.other_user_name || conv.name || `User ${conv.other_user_id}`} secondary={conv.last_message || 'No messages'} secondaryTypographyProps={{ noWrap: true }} />
+                                    <Badge color="error" variant="dot" invisible={!unreads[conv.other_user_id]} sx={{ width: '100%', '& .MuiBadge-badge': { right: 10, top: 20 } }}>
+                                        <ListItemText primary={conv.other_user_name || conv.name || `User ${conv.other_user_id}`} secondary={conv.last_message || 'No messages'} secondaryTypographyProps={{ noWrap: true }} />
+                                    </Badge>
                                 </ListItem>
                             ))
                         ) : (

@@ -17,9 +17,17 @@ class ConnectionManager:
 
     async def send_personal_message(self, message: str, user_id: int):
         if user_id in self.active_connections:
-            await self.active_connections[user_id].send_text(message)
+            try:
+                await self.active_connections[user_id].send_text(message)
+            except Exception:
+                # Handle stale connection
+                self.disconnect(user_id)
 
     async def broadcast_to_users(self, message: str, user_ids: list[int]):
         for user_id in user_ids:
             if user_id in self.active_connections:
-                await self.active_connections[user_id].send_text(message)
+                try:
+                    await self.active_connections[user_id].send_text(message)
+                except Exception:
+                    # Handle stale connection
+                    self.disconnect(user_id)

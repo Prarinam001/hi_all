@@ -9,3 +9,13 @@ export const getGroups = async () => {
     const res = await api.get('/api/chat/groups');
     return res.data;
 };
+
+export const addMemberToGroup = async (groupId, email) => {
+    const res = await api.post(`/api/chat/groups/${groupId}/members`, { email });
+    return res.data;
+};
+
+export const leaveGroup = async (groupId) => {
+    const res = await api.delete(`/api/chat/groups/${groupId}`);
+    return res.data;
+};

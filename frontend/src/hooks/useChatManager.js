@@ -1,41 +1,142 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getGroups } from '../services/groupService';
+import { getGroups, addMemberToGroup, leaveGroup } from '../services/groupService';
+import { saveLocalMessage, getLocalMessages, bulkSaveLocalMessages, saveLocalGroups, getLocalGroups, saveLocalGroup, saveLocalConversation, deleteLocalGroupData } from '../db/db';
 
-export default function useChatManager(user, api, setConversations) {
+export default function useChatManager(user, api, setConversations, selectedUser) {
     const [messages, setMessages] = useState({});
     const [contacts, setContacts] = useState({});
     const [groups, setGroups] = useState([]);
     const [input, setInput] = useState('');
+    const [unreads, setUnreads] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem(`unreads_${user?.id}`) || '{}');
+        } catch { return {}; }
+    });
+
+    useEffect(() => {
+        if (selectedUser) {
+            const listKey = selectedUser.isGroup ? `group_${selectedUser.id}` : selectedUser.id;
+            setUnreads(prev => {
+                if (!prev[listKey]) return prev;
+                const next = { ...prev };
+                delete next[listKey];
+                localStorage.setItem(`unreads_${user?.id}`, JSON.stringify(next));
+                return next;
+            });
+        }
+    }, [selectedUser, user?.id]);
 
     useEffect(() => {
         if (!user) return;
-        const loadGroups = async () => {
+        const loadAndSyncGroups = async () => {
+            // 1. Load from local first
+            const localGroups = await getLocalGroups();
+            if (localGroups.length > 0) {
+                setGroups(localGroups);
+            }
+
+            // 2. Sync from server
             try {
                 const res = await getGroups();
-                setGroups(Array.isArray(res) ? res : []);
+                if (Array.isArray(res)) {
+                    setGroups(res);
+                    await saveLocalGroups(res);
+                }
             } catch (err) {
-                console.error("Failed to load groups", err);
-                setGroups([]);
+                console.error("Failed to load/sync groups", err);
             }
         };
-        loadGroups();
+        loadAndSyncGroups();
     }, [user]);
+
+    // Load local messages and sync with server
+    const loadLocalMessagesForUser = useCallback(async (userId, isGroup = false) => {
+        if (!userId) return;
+        const listKey = isGroup ? `group_${userId}` : userId;
+
+        // 1. Load from local first for instant UI
+        const localMsgs = await getLocalMessages(userId, isGroup);
+        if (localMsgs && localMsgs.length > 0) {
+            setMessages(prev => ({
+                ...prev,
+                [listKey]: localMsgs.map(m => ({ ...m, isMine: m.sender_id === user.id }))
+            }));
+        }
+
+        // 2. Background sync from server (DISABLED for local-first)
+        /*
+        try {
+            const params = isGroup ? { group_id: userId } : { other_id: userId };
+            const res = await api.get('/api/chat/messages', { params });
+            const serverMsgs = res.data;
+
+            if (serverMsgs && serverMsgs.length > 0) {
+                // Save all server messages to local DB (Dexie.bulkPut handles updates/duplicates if IDs match)
+                await bulkSaveLocalMessages(serverMsgs);
+
+                // Update state with fresh data
+                setMessages(prev => ({
+                    ...prev,
+                    [listKey]: serverMsgs.map(m => ({
+                        ...m,
+                        isMine: m.sender_id === user.id,
+                        sender_name: m.sender_name || (m.sender_id === user.id ? (user.full_name || user.name) : 'Unknown')
+                    }))
+                }));
+            }
+        } catch (err) {
+            console.error("Failed to sync messages from server", err);
+        }
+        */
+    }, [user, api]);
 
     const handleChatMessage = useCallback((data) => {
         // Skip echo of own messages to avoid duplication (already added optimistically in sendMessage)
         if (data.sender_id === user.id) return;
 
+        const otherId = data.sender_id === user.id ? data.recipient_id : data.sender_id;
+        const newMsg = {
+            ...data,
+            isMine: data.sender_id === user.id,
+            sender_name: data.sender_name || (data.sender_id === user.id ? (user.full_name || user.name) : 'Unknown')
+        };
+        const listKey = data.group_id ? `group_${data.group_id}` : otherId;
+
+        // Save to Local DB
+        saveLocalMessage(newMsg).catch(err => console.error("Failed to save message locally", err));
+
         setMessages(prev => {
-            const otherId = data.sender_id === user.id ? data.recipient_id : data.sender_id;
-            const newMsg = {
-                ...data,
-                isMine: data.sender_id === user.id,
-                sender_name: data.sender_name || 'Unknown'
-            };
-            const listKey = data.group_id ? `group_${data.group_id}` : otherId;
             const list = prev[listKey] || [];
             return { ...prev, [listKey]: [...list, newMsg] };
         });
+
+        const currentSelectedKey = selectedUser ? (selectedUser.isGroup ? `group_${selectedUser.id}` : selectedUser.id) : null;
+        if (listKey !== currentSelectedKey) {
+            setUnreads(prev => {
+                const next = { ...prev, [listKey]: true };
+                localStorage.setItem(`unreads_${user?.id}`, JSON.stringify(next));
+                return next;
+            });
+        }
+
+        if (data.group_id) {
+            setGroups(prev => {
+                const exists = prev.find(g => g.id === data.group_id);
+                if (!exists) {
+                    // Group doesn't exist in local state, fetch all groups to update
+                    api.get('/api/chat/groups').then(res => {
+                        if (Array.isArray(res.data)) {
+                            // Update groups state
+                            setGroups(res.data);
+                            // Also save to local DB
+                            saveLocalGroups(res.data).catch(e => console.error("Failed to save local groups", e));
+                        }
+                    }).catch(err => console.error("Failed to fetch new group for message", err));
+                }
+                return prev;
+            });
+        }
+
 
         if (data.sender_id !== user.id) {
             setContacts(prev => ({
@@ -47,28 +148,48 @@ export default function useChatManager(user, api, setConversations) {
                 }
             }));
 
-            setConversations(prev => {
-                const existingIdx = prev.findIndex(c => c.other_user_id === data.sender_id);
-                if (existingIdx >= 0) {
-                    const updated = [...prev];
-                    updated[existingIdx] = {
-                        ...updated[existingIdx],
-                        last_message: data.content,
-                        last_message_time: data.timestamp
-                    };
-                    return updated;
-                } else {
-                    return [{
-                        other_user_id: data.sender_id,
-                        other_user_name: data.sender_name || 'Unknown',
-                        other_user_email: data.sender_email || '',
-                        last_message: data.content,
-                        last_message_time: data.timestamp
-                    }, ...prev];
-                }
-            });
+            if (!data.group_id) {
+                setConversations(prev => {
+                    const existingIdx = prev.findIndex(c => c.other_user_id === data.sender_id);
+                    if (existingIdx >= 0) {
+                        const updated = [...prev];
+                        updated[existingIdx] = {
+                            ...updated[existingIdx],
+                            last_message: data.content,
+                            last_message_time: data.timestamp
+                        };
+                        return updated;
+                    } else {
+                        const newConv = {
+                            other_user_id: data.sender_id,
+                            other_user_name: data.sender_name || (data.sender_id === user.id ? (user.full_name || user.name) : 'Unknown'),
+                            other_user_email: data.sender_email || '',
+                            last_message: data.content,
+                            last_message_time: data.timestamp
+                        };
+                        return [newConv, ...prev];
+                    }
+                });
+            }
+
+            // Update local DB outside of the state setter
+            const updateLocalDB = async () => {
+                const otherId = data.sender_id;
+                const conversation = {
+                    other_user_id: otherId,
+                    other_user_name: data.sender_name || (data.sender_id === user.id ? (user.full_name || user.name) : 'Unknown'),
+                    other_user_email: data.sender_email || '',
+                    last_message: data.content,
+                    last_message_time: data.timestamp
+                };
+                await saveLocalConversation(conversation).catch(err => console.error("Failed to save conversation locally", err));
+            };
+            // Only update local DB and conversations list for direct messages
+            if (!data.group_id) {
+                updateLocalDB();
+            }
         }
-    }, [user.id, setConversations]);
+    }, [user.id, setConversations, api, setGroups, selectedUser]);
 
     const sendMessage = (selectedUser, send) => {
         if (!input || !selectedUser) return;
@@ -86,6 +207,9 @@ export default function useChatManager(user, api, setConversations) {
         };
 
         if (send) send(msg);
+
+        // Save to Local DB
+        saveLocalMessage(msg).catch(err => console.error("Failed to save own message locally", err));
 
         setContacts(prev => ({
             ...prev,
@@ -108,15 +232,28 @@ export default function useChatManager(user, api, setConversations) {
                     };
                     return updated;
                 } else {
-                    return [{
+                    const newConv = {
                         other_user_id: selectedUser.id,
                         other_user_name: selectedUser.full_name,
                         other_user_email: selectedUser.email,
                         last_message: input,
                         last_message_time: msg.timestamp
-                    }, ...prev];
+                    };
+                    return [newConv, ...prev];
                 }
             });
+
+            const updateLocalDB = async () => {
+                const conversation = {
+                    other_user_id: selectedUser.id,
+                    other_user_name: selectedUser.full_name,
+                    other_user_email: selectedUser.email,
+                    last_message: input,
+                    last_message_time: msg.timestamp
+                };
+                await saveLocalConversation(conversation).catch(err => console.error("Failed to save conversation locally", err));
+            };
+            updateLocalDB();
         }
 
         setMessages(prev => {
@@ -127,14 +264,47 @@ export default function useChatManager(user, api, setConversations) {
         setInput('');
     };
 
+    const addGroup = useCallback(async (newGroup) => {
+        setGroups(prev => [...prev, newGroup]);
+        await saveLocalGroup(newGroup).catch(err => console.error("Failed to save new group locally", err));
+    }, []);
+
+    const addMember = useCallback(async (groupId, email) => {
+        try {
+            const updatedGroup = await addMemberToGroup(groupId, email);
+            setGroups(prev => prev.map(g => g.id === groupId ? updatedGroup : g));
+            await saveLocalGroup(updatedGroup);
+            return updatedGroup;
+        } catch (err) {
+            console.error("Failed to add member", err);
+            throw err;
+        }
+    }, []);
+
+    const groupLeave = useCallback(async (groupId) => {
+        try {
+            await leaveGroup(groupId);
+            setGroups(prev => prev.filter(g => g.id !== groupId));
+            await deleteLocalGroupData(groupId);
+        } catch (err) {
+            console.error("Failed to leave group", err);
+            throw err;
+        }
+    }, []);
+
     return {
         messages,
         contacts,
         groups,
         setGroups,
+        addGroup,
+        addMember,
+        groupLeave,
         input,
         setInput,
         handleChatMessage,
-        sendMessage
+        sendMessage,
+        loadLocalMessagesForUser,
+        unreads
     };
 }

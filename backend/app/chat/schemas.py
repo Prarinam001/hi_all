@@ -25,6 +25,9 @@ class GroupCreate(BaseModel):
     name: str
     member_emails: List[str] = []
 
+class AddMemberRequest(BaseModel):
+    email: str
+
 from app.account.schemas import UserOut
 
 class GroupMemberResponse(BaseModel):
@@ -36,6 +39,8 @@ class GroupResponse(BaseModel):
     id: int
     name: str
     created_by: int
+    last_message: Optional[str] = None
+    last_message_time: Optional[datetime] = None
     members: List[GroupMemberResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
