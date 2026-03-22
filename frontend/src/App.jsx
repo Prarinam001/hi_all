@@ -11,10 +11,10 @@ const darkTheme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#00a884', // WhatsApp Green
+      main: '#0eaa88ff', // WhatsApp Green
     },
     secondary: {
-      main: '#005c4b',
+      main: '#0ca02aff',
     },
     background: {
       default: '#111b21',

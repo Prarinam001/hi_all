@@ -215,6 +215,24 @@ async def get_messages(session: AsyncSession, current_user_id: int, other_id: in
     result = await session.scalars(stmt)
     return result.all()
 
+async def get_offline_messages(session: AsyncSession, current_user_id: int):
+    # Get all 1-on-1 messages where user is the recipient
+    stmt = select(Message).options(
+        selectinload(Message.sender)).where(
+        Message.recipient_id == current_user_id
+    ).order_by(Message.timestamp.asc())
+    result = await session.scalars(stmt)
+    return result.all()
+
+async def acknowledge_messages(session: AsyncSession, message_ids: List[int], current_user_id: int):
+    stmt = select(Message).where(Message.id.in_(message_ids), Message.recipient_id == current_user_id)
+    result = await session.scalars(stmt)
+    messages_to_delete = result.all()
+    for msg in messages_to_delete:
+        await session.delete(msg)
+    await session.commit()
+    return {"status": "success"}
+
 async def build_connection_for_conversation(websocket: WebSocket, user_id: int, session: AsyncSession):
     await manager.connect(websocket, user_id)
     try:
@@ -235,36 +253,46 @@ async def build_connection_for_conversation(websocket: WebSocket, user_id: int, 
                 # Save message and update conversation
                 if group_id:
                     gid = int(group_id)
-                    # Prepare data before commit to avoid detached instance issues
-                    # msg = await save_message(session, user_id, content, group_id=gid)
-                    # await update_group_metadata(session, gid, content)
+                    await update_group_metadata(session, gid, content)
                     
-                    # Reset transaction to ensure we get fresh data (not stale snapshot)
-                    await session.rollback()
-                    
-                    # Get members while session is definitely active
+                    # Get members
                     members = await get_group_members(session, gid)
-                    if not msg_data.get("timestamp"):
-                        msg_data["timestamp"] = datetime.datetime.utcnow().isoformat()
-                    # if not msg_data.get("id"):
-                    #    msg_data["id"] = ... # Client usually manages local IDs now
-
-                    # Broadcast to group members
-                    await manager.broadcast_to_users(json.dumps(msg_data), members)
+                    base_timestamp = datetime.datetime.utcnow()
+                    
+                    inserted_msgs = []
+                    for member_id in members:
+                        if member_id == user_id:
+                            continue # Sender already has message locally
+                            
+                        new_msg = Message(
+                            content=content,
+                            sender_id=user_id,
+                            recipient_id=member_id,
+                            group_id=gid,
+                            timestamp=base_timestamp
+                        )
+                        session.add(new_msg)
+                        inserted_msgs.append(new_msg)
+                        
+                    await session.flush()
+                    
+                    for msg in inserted_msgs:
+                        await session.refresh(msg)
+                        msg_data_copy = msg_data.copy()
+                        msg_data_copy["timestamp"] = msg.timestamp.isoformat()
+                        msg_data_copy["id"] = msg.id
+                        
+                        await manager.send_personal_message(json.dumps(msg_data_copy), msg.recipient_id)
+                        
+                    await session.commit()
                 elif target_id:
                     recipient_id = int(target_id)
-                    # msg = await save_message(session, user_id, content, recipient_id=recipient_id)
-                    # await update_conversation(session, user_id, recipient_id, content)
-                    
-                    # Extract broadcasting data
-                    # timestamp_str = msg.timestamp.isoformat() if msg.timestamp else datetime.datetime.utcnow().isoformat()
-                    # msg_id = msg.id
+                    msg = await save_message(session, user_id, content, recipient_id=recipient_id)
+                    await update_conversation(session, user_id, recipient_id, content)
+                    await session.commit()
 
-                    # await session.commit() # Commit atomic transaction (DISABLED)
-
-                    # Prepare message for delivery
-                    if not msg_data.get("timestamp"):
-                        msg_data["timestamp"] = datetime.datetime.utcnow().isoformat()
+                    msg_data["timestamp"] = msg.timestamp.isoformat() if msg.timestamp else datetime.datetime.utcnow().isoformat()
+                    msg_data["id"] = msg.id
 
                     await manager.send_personal_message(json.dumps(msg_data), recipient_id)
             except Exception as e:

@@ -59,3 +59,6 @@ class ConversationResponse(BaseModel):
     other_user_email: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class MessageAck(BaseModel):
+    message_ids: List[int]

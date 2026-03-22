@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getGroups, addMemberToGroup, leaveGroup } from '../services/groupService';
 import { saveLocalMessage, getLocalMessages, bulkSaveLocalMessages, saveLocalGroups, getLocalGroups, saveLocalGroup, saveLocalConversation, deleteLocalGroupData } from '../db/db';
 
@@ -94,6 +94,11 @@ export default function useChatManager(user, api, setConversations, selectedUser
         // Skip echo of own messages to avoid duplication (already added optimistically in sendMessage)
         if (data.sender_id === user.id) return;
 
+        // Automatically ACK received messages to remove from backend DB
+        if (data.id && api && !data.skipAck) {
+            api.post('/api/chat/messages/ack', { message_ids: [data.id] }).catch(err => console.error("ACK failed", err));
+        }
+
         const otherId = data.sender_id === user.id ? data.recipient_id : data.sender_id;
         const newMsg = {
             ...data,
@@ -136,7 +141,6 @@ export default function useChatManager(user, api, setConversations, selectedUser
                 return prev;
             });
         }
-
 
         if (data.sender_id !== user.id) {
             setContacts(prev => ({
@@ -190,6 +194,35 @@ export default function useChatManager(user, api, setConversations, selectedUser
             }
         }
     }, [user.id, setConversations, api, setGroups, selectedUser]);
+
+    const syncedUserRef = useRef(null);
+
+    useEffect(() => {
+        if (!user || !api || !handleChatMessage) return;
+        if (syncedUserRef.current === user.id) return;
+
+        const syncOfflineMessages = async () => {
+            try {
+                const res = await api.get('/api/chat/messages/sync');
+                const serverMsgs = res.data;
+                if (serverMsgs && serverMsgs.length > 0) {
+                    for (const msg of serverMsgs) {
+                        // Map server_id to id and prevent duplicate individual ACKs
+                        handleChatMessage({ ...msg, id: msg.server_id, skipAck: true });
+                    }
+                    const messageIds = serverMsgs.map(m => m.server_id).filter(id => id != null);
+                    if (messageIds.length > 0) {
+                        await api.post('/api/chat/messages/ack', { message_ids: messageIds });
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to sync offline messages", err);
+            }
+        };
+
+        syncedUserRef.current = user.id;
+        syncOfflineMessages();
+    }, [user, api, handleChatMessage]);
 
     const sendMessage = (selectedUser, send) => {
         if (!input || !selectedUser) return;
