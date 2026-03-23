@@ -30,8 +30,10 @@ const styles = {
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: '#0b141a',
-        position: 'relative'
+        // bgcolor: '#0b141a',
+        position: 'relative',
+        background: 'radial-gradient(circle at 15% 50%, rgba(14, 170, 136, 0.1), transparent 25%), radial-gradient(circle at 85% 30%, rgba(12, 160, 42, 0.15), transparent 25%)',
+        bgcolor: 'background.default',
     }
 };
 
