@@ -23,24 +23,31 @@ export const saveLocalMessage = async (msg) => {
         if (existing) return existing.id;
     }
 
-    return await db.messages.add({
+    const payload = {
         ...msg,
         timestamp: msg.timestamp || new Date().toISOString()
-    });
+    };
+    delete payload.id; // Prevent collision with Dexie's ++id auto-increment sequence
+    return await db.messages.add(payload);
 };
 
 export const bulkSaveLocalMessages = async (messages) => {
     for (const m of messages) {
         const serverId = m.server_id || m.id;
+        const payload = { ...m, timestamp: m.timestamp || new Date().toISOString() };
         if (serverId) {
+            payload.server_id = serverId;
             const existing = await db.messages.where('server_id').equals(serverId).first();
             if (existing) {
-                await db.messages.update(existing.id, { ...m, server_id: serverId });
+                delete payload.id;
+                await db.messages.update(existing.id, payload);
             } else {
-                await db.messages.add({ ...m, server_id: serverId, timestamp: m.timestamp || new Date().toISOString() });
+                delete payload.id;
+                await db.messages.add(payload);
             }
         } else {
-            await db.messages.add({ ...m, timestamp: m.timestamp || new Date().toISOString() });
+            delete payload.id;
+            await db.messages.add(payload);
         }
     }
 };

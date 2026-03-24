@@ -18,6 +18,7 @@ class MessageResponse(MessageBase):
     recipient_id: Optional[int]
     group_id: Optional[int]
     timestamp: datetime
+    reply_to_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 

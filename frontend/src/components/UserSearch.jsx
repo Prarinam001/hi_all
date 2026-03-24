@@ -82,7 +82,7 @@ export default function UserSearch({ onUserSelect }) {
                         <ListItemAvatar>
                             <Avatar>{(result.full_name || result.name || '?')[0].toUpperCase()}</Avatar>
                         </ListItemAvatar>
-                        <ListItemText primary={result.full_name || result.name} secondary={result.email} />
+                        <ListItemText primary={result.full_name || result.name} secondary={`${result.email} ${result.phone_number}`} />
                     </ListItem>
                 </List>
             )}

@@ -14,7 +14,7 @@ async def get_current_user(session: SessionDep, request: Request):
             headers={"WWW-Authenticate": "Bearer"},
         )
     payload = decode_token(token)
-    print("payload------------------------: ", payload)
+    # print("payload------------------------: ", payload)
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -22,7 +22,7 @@ async def get_current_user(session: SessionDep, request: Request):
             headers={"WWW-Authenticate": "Bearer"},
         )
     user_id = payload.get("sub")
-    print("user id------------------------: ", user_id)
+    # print("user id------------------------: ", user_id)
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

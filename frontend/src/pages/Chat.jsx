@@ -54,6 +54,8 @@ export default function Chat() {
         addGroup,
         input,
         setInput,
+        replyTo,
+        setReplyTo,
         handleChatMessage,
         sendMessage,
         loadLocalMessagesForUser,
@@ -183,11 +185,14 @@ export default function Chat() {
                         <MessageList
                             messages={messages[selectedUser.isGroup ? `group_${selectedUser.id}` : selectedUser.id] || []}
                             selectedUser={selectedUser}
+                            onReplyClick={setReplyTo}
                         />
 
                         <MessageInput
                             input={input}
                             setInput={setInput}
+                            replyTo={replyTo}
+                            onCancelReply={() => setReplyTo(null)}
                             onSend={handleSendMessage}
                             onEmojiClick={handleEmojiClick}
                             showEmojiPicker={showEmojiPicker}

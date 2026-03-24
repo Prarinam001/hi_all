@@ -97,14 +97,14 @@ async def add_member_to_group(session: AsyncSession, group_id: int, email: str, 
 
 async def leave_group(session: AsyncSession, group_id: int, current_user: User):
     # Find membership
-    print("group_id: ", group_id)
-    print("current_user: ", current_user, vars(current_user))
+    # print("group_id: ", group_id)
+    # print("current_user: ", current_user, vars(current_user))
     stmt = select(GroupMember).where(
         (GroupMember.group_id == group_id) & (GroupMember.user_id == current_user.id)
     )
     result = await session.scalars(stmt)
     member = result.first()
-    print("member: ======================================>", member, member.id, member.user_id, member.group_id)
+    # print("member: ======================================>", member, member.id, member.user_id, member.group_id)
     
     if not member:
         raise HTTPException(status_code=404, detail="Membership not found")
@@ -179,12 +179,15 @@ async def update_conversation(session: AsyncSession, sender_id: int, recipient_i
         )
         session.add(conv)
 
-async def save_message(session: AsyncSession, sender_id: int, content: str, recipient_id: int = None, group_id: int = None):
+async def save_message(session: AsyncSession, sender_id: int, content: str, recipient_id: int = None, group_id: int = None, reply_to_id: int = None, reply_to_content: str = None, reply_to_sender: str = None):
     new_msg = Message(
         content=content,
         sender_id=sender_id,
         recipient_id=recipient_id,
-        group_id=group_id
+        group_id=group_id,
+        reply_to_id=reply_to_id,
+        reply_to_content=reply_to_content,
+        reply_to_sender=reply_to_sender
     )
     session.add(new_msg)
     await session.flush() # Ensure ID is generated
@@ -203,9 +206,13 @@ async def update_group_metadata(session: AsyncSession, group_id: int, last_messa
 async def get_messages(session: AsyncSession, current_user_id: int, other_id: int = None, group_id: int = None):
     
     if group_id:
-        stmt = select(Message).options(selectinload(Message.sender)).where(Message.group_id == group_id).order_by(Message.timestamp.asc())
+        stmt = select(Message).options(
+            selectinload(Message.sender)
+        ).where(Message.group_id == group_id).order_by(Message.timestamp.asc())
     else:
-        stmt = select(Message).options(selectinload(Message.sender)).where(
+        stmt = select(Message).options(
+            selectinload(Message.sender)
+        ).where(
             or_(
                 and_(Message.sender_id == current_user_id, Message.recipient_id == other_id),
                 and_(Message.sender_id == other_id, Message.recipient_id == current_user_id)
@@ -218,7 +225,8 @@ async def get_messages(session: AsyncSession, current_user_id: int, other_id: in
 async def get_offline_messages(session: AsyncSession, current_user_id: int):
     # Get all 1-on-1 messages where user is the recipient
     stmt = select(Message).options(
-        selectinload(Message.sender)).where(
+        selectinload(Message.sender)
+    ).where(
         Message.recipient_id == current_user_id
     ).order_by(Message.timestamp.asc())
     result = await session.scalars(stmt)
@@ -249,10 +257,13 @@ async def build_connection_for_conversation(websocket: WebSocket, user_id: int, 
                 target_id = msg_data.get("target_id")
                 group_id = msg_data.get("group_id")
                 content = msg_data.get("content")
+                reply_to_id = msg_data.get("reply_to_id")
+                reply_to_content = msg_data.get("reply_to_content")
+                reply_to_sender = msg_data.get("reply_to_sender")
                 
                 msg_type = msg_data.get("type", "chat")
                 signaling_types = ["offer", "answer", "candidate", "call-reject", "call-end", "voice-offer", "voice-answer"]
-                print("message type:=====================> ", msg_type)
+                # print("message type:=====================> ", msg_type)
                 if msg_type in signaling_types:
                     # Forward signaling message directly
                     if group_id:
@@ -285,6 +296,9 @@ async def build_connection_for_conversation(websocket: WebSocket, user_id: int, 
                             sender_id=user_id,
                             recipient_id=member_id,
                             group_id=gid,
+                            reply_to_id=reply_to_id,
+                            reply_to_content=reply_to_content,
+                            reply_to_sender=reply_to_sender,
                             timestamp=base_timestamp
                         )
                         session.add(new_msg)
@@ -303,7 +317,7 @@ async def build_connection_for_conversation(websocket: WebSocket, user_id: int, 
                     await session.commit()
                 elif target_id:
                     recipient_id = int(target_id)
-                    msg = await save_message(session, user_id, content, recipient_id=recipient_id)
+                    msg = await save_message(session, user_id, content, recipient_id=recipient_id, reply_to_id=reply_to_id, reply_to_content=reply_to_content, reply_to_sender=reply_to_sender)
                     await update_conversation(session, user_id, recipient_id, content)
                     await session.commit()
 
@@ -316,7 +330,7 @@ async def build_connection_for_conversation(websocket: WebSocket, user_id: int, 
                     await session.rollback() # Ensure rollback on error
                 except Exception:
                     pass # Connection might be dead anyway
-                print(f"Error handling message: {e}")
+                # print(f"Error handling message: {e}")
 
     finally:
         manager.disconnect(user_id)

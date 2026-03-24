@@ -24,7 +24,7 @@ export default function useWebSocket(userId, onMessage, enabled = true) {
             socket.onopen = () => {
                 reconnectRef.current = 0;
                 setReadyState(socket.readyState);
-                console.log('WS connected', userId);
+                //console.log('WS connected', userId);
             };
 
             socket.onmessage = (event) => {
@@ -37,12 +37,12 @@ export default function useWebSocket(userId, onMessage, enabled = true) {
             };
 
             socket.onclose = (event) => {
-                console.log('WS closed', { code: event.code, reason: event.reason, wasClean: event.wasClean, userId });
+                //console.log('WS closed', { code: event.code, reason: event.reason, wasClean: event.wasClean, userId });
                 setReadyState(WebSocket.CLOSED);
                 if (!mounted) return;
                 if (!userId || !enabled) return; // don't reconnect if disabled or no userId
                 const delay = Math.min(30000, 1000 * Math.pow(2, reconnectRef.current++));
-                console.log(`WS closed, reconnecting in ${delay}ms`);
+                //console.log(`WS closed, reconnecting in ${delay}ms`);
                 setTimeout(connect, delay);
             };
 

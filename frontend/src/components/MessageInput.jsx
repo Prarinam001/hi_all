@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, TextField, IconButton, Popover } from '@mui/material';
-import { Send, Smile } from 'lucide-react';
+import { Box, TextField, IconButton, Popover, Typography } from '@mui/material';
+import { Send, Smile, X } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 
 const styles = {
@@ -21,9 +21,30 @@ const styles = {
     }
 };
 
-export default function MessageInput({ input, setInput, onSend, onEmojiClick, showEmojiPicker, emojiAnchorEl, handleEmojiButtonClick, handleEmojiClose }) {
+export default function MessageInput({ input, setInput, replyTo, onCancelReply, onSend, onEmojiClick, showEmojiPicker, emojiAnchorEl, handleEmojiButtonClick, handleEmojiClose }) {
     return (
-        <>
+        <Box sx={{ display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
+            {replyTo && (
+                <Box sx={{ 
+                    px: 2, 
+                    py: 1, 
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                }}>
+                    <Box sx={{ borderLeft: '4px solid', borderColor: 'primary.main', pl: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                            Replying to {replyTo.isMine ? 'Yourself' : (replyTo.sender_name || 'Unknown')}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 300 }}>
+                            {replyTo.content}
+                        </Typography>
+                    </Box>
+                    <IconButton size="small" onClick={onCancelReply}><X size={16} /></IconButton>
+                </Box>
+            )}
             <Box component="form" onSubmit={onSend} sx={styles.inputContainer}>
                 <TextField
                     fullWidth
@@ -49,6 +70,6 @@ export default function MessageInput({ input, setInput, onSend, onEmojiClick, sh
                     <EmojiPicker onEmojiClick={onEmojiClick} theme="dark" />
                 </Box>
             </Popover>
-        </>
+        </Box>
     );
 }

@@ -7,6 +7,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
     const [contacts, setContacts] = useState({});
     const [groups, setGroups] = useState([]);
     const [input, setInput] = useState('');
+    const [replyTo, setReplyTo] = useState(null);
     const [unreads, setUnreads] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem(`unreads_${user?.id}`) || '{}');
@@ -236,7 +237,10 @@ export default function useChatManager(user, api, setConversations, selectedUser
             recipient_id: selectedUser.isGroup ? null : selectedUser.id,
             group_id: selectedUser.isGroup ? selectedUser.id : null,
             target_id: selectedUser.isGroup ? null : selectedUser.id,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            reply_to_id: replyTo ? (replyTo.server_id || null) : null,
+            reply_to_content: replyTo ? replyTo.content : null,
+            reply_to_sender: replyTo ? (replyTo.sender_name || (replyTo.isMine ? (user.full_name || user.name) : 'Unknown')) : null
         };
 
         if (send) send(msg);
@@ -295,6 +299,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
             return { ...prev, [listKey]: [...list, { ...msg, isMine: true }] };
         });
         setInput('');
+        setReplyTo(null);
     };
 
     const addGroup = useCallback(async (newGroup) => {
@@ -335,6 +340,8 @@ export default function useChatManager(user, api, setConversations, selectedUser
         groupLeave,
         input,
         setInput,
+        replyTo,
+        setReplyTo,
         handleChatMessage,
         sendMessage,
         loadLocalMessagesForUser,
