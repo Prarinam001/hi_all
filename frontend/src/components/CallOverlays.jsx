@@ -27,17 +27,46 @@ const styles = {
         height: '100%',
         display: 'block'
     },
-    localVideo: {
-        width: 200,
-        height: 150,
+    localVideoContainer: {
         position: 'absolute',
         bottom: 80,
         right: 16,
-        backgroundColor: '#111',
+        width: 200,
+        height: 150,
         borderRadius: 8,
-        objectFit: 'cover',
         border: '2px solid white',
-        zIndex: 10
+        overflow: 'hidden',
+        zIndex: 10,
+        backgroundColor: '#111',
+    },
+    localVideo: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        display: 'block'
+    },
+    nameLabel: {
+        position: 'absolute',
+        top: 16,
+        left: 16,
+        color: 'white',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        padding: '4px 12px',
+        borderRadius: 4,
+        zIndex: 20,
+        fontWeight: 'bold',
+    },
+    localNameLabel: {
+        position: 'absolute',
+        top: 8,
+        left: 8,
+        color: 'white',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        padding: '2px 8px',
+        borderRadius: 4,
+        zIndex: 20,
+        fontSize: '0.75rem',
+        fontWeight: 'bold',
     },
     buttonContainer: {
         p: 2,
@@ -90,7 +119,7 @@ const styles = {
     }
 };
 
-export default function CallOverlays({ isInCall, callType, localVideoRef, remoteVideoRef, remoteAudioRef, endCall, incomingCall, acceptCall, rejectCall, selectedUser }) {
+export default function CallOverlays({ user, isInCall, callType, localVideoRef, remoteVideoRef, remoteAudioRef, endCall, incomingCall, acceptCall, rejectCall, selectedUser }) {
     useEffect(() => {
         if (remoteVideoRef?.current) {
             const video = remoteVideoRef.current;
@@ -123,15 +152,24 @@ export default function CallOverlays({ isInCall, callType, localVideoRef, remote
                             muted={false}
                             style={styles.remoteVideo}
                         />
+                        <Typography sx={styles.nameLabel}>
+                            {selectedUser?.name || selectedUser?.full_name || 'Unknown'}
+                        </Typography>
                         {/* Hidden audio element for reliable audio playback */}
                         <audio ref={remoteAudioRef} autoPlay style={{ display: 'none' }} />
-                        <video
-                            ref={localVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            style={styles.localVideo}
-                        />
+                        
+                        <Box sx={styles.localVideoContainer}>
+                            <video
+                                ref={localVideoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                style={styles.localVideo}
+                            />
+                            <Typography sx={styles.localNameLabel}>
+                                {user?.name || user?.full_name || 'You'}
+                            </Typography>
+                        </Box>
                     </Box>
                     {/* Button Container */}
                     <Box sx={styles.buttonContainer}>

@@ -64,9 +64,9 @@ def decode_token(token: str):
     try:
         return jwt.decode(token, JWT_SECRET_KEY, algorithms=JWT_ALGORITHM)
     except ExpiredSignatureError:
-        return HTTPException(status_code=401, detail="Token Has Expired")
+        raise HTTPException(status_code=401, detail="Token Has Expired")
     except JWTError:
-        return HTTPException(status_code=401, detail="Invalid Token")
+        raise HTTPException(status_code=401, detail="Invalid Token")
 
 
 async def verify_refresh_token(session: AsyncSession, token: str):
@@ -77,8 +77,8 @@ async def verify_refresh_token(session: AsyncSession, token: str):
         expires_at = db_refresh_token.expires_at
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
-            await session.delete(db_refresh_token)
-            await session.commit()
+            # await session.delete(db_refresh_token)
+            # await session.commit()
         if expires_at > datetime.now(timezone.utc):
             user_stmt = select(User).where(User.id == db_refresh_token.user_id)
             user_result = await session.scalars(user_stmt)
