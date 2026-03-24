@@ -197,6 +197,7 @@ export default function Chat() {
                         />
 
                         <CallOverlays
+                            user={user}
                             isInCall={callManager.isInCall}
                             callType={callManager.callType}
                             localVideoRef={callManager.localVideo}

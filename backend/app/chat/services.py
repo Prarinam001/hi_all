@@ -250,6 +250,22 @@ async def build_connection_for_conversation(websocket: WebSocket, user_id: int, 
                 group_id = msg_data.get("group_id")
                 content = msg_data.get("content")
                 
+                msg_type = msg_data.get("type", "chat")
+                signaling_types = ["offer", "answer", "candidate", "call-reject", "call-end", "voice-offer", "voice-answer"]
+                print("message type:=====================> ", msg_type)
+                if msg_type in signaling_types:
+                    # Forward signaling message directly
+                    if group_id:
+                        gid = int(group_id)
+                        members = await get_group_members(session, gid)
+                        for member_id in members:
+                            if member_id != user_id:
+                                await manager.send_personal_message(json.dumps(msg_data), member_id)
+                    elif target_id:
+                        recipient_id = int(target_id)
+                        await manager.send_personal_message(json.dumps(msg_data), recipient_id)
+                    continue
+
                 # Save message and update conversation
                 if group_id:
                     gid = int(group_id)
