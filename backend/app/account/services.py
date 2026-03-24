@@ -22,7 +22,7 @@ from app.account.dependency import get_current_user
 
 
 async def create_user(session: AsyncSession, user: UserCreate):
-    print("user: ", user)
+    # print("user: ", user)
     stmt = select(User).where(User.email == user.email)
     result = await session.scalars(stmt)
     if result.first():
@@ -48,7 +48,7 @@ async def authenticate_user(session: AsyncSession, user_login: UserLogin):
 async def email_verification_send(user: User):
     token = create_email_verification_token(user.id)
     link = f"http://localhost:8000/account/verify?token={token}"
-    print(f"verify your email link: {link}")
+    # print(f"verify your email link: {link}")
     return {"msg": "Verification email send"}
 
 
@@ -96,7 +96,7 @@ async def password_reset_email_send(session: AsyncSession, data: ForgetPasswordR
         )
     token = create_password_reset_token(user.id)
     link = f"http://localhost:8000/account/password-reset?token={token}"
-    print(f"Reset your password link: {link}")
+    # print(f"Reset your password link: {link}")
     return {"msg": "Password Reset Email Sent"}
 
 
@@ -130,7 +130,6 @@ async def get_user_by_email(session: AsyncSession, email: str):
 )).where(User.email == email)
     result = await session.scalars(stmt)
     user = result.first()
-    print("user------------: ", user)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found"

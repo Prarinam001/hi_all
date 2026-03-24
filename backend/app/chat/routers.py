@@ -94,7 +94,10 @@ async def get_chat_history(
                 "sender_name": m.sender.name if m.sender else "Unknown", 
                 "recipient_id": m.recipient_id, 
                 "group_id": m.group_id, 
-                "timestamp": m.timestamp.isoformat() if m.timestamp else None
+                "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+                "reply_to_id": m.reply_to_id,
+                "reply_to_content": m.reply_to_content,
+                "reply_to_sender": m.reply_to_sender
             } 
             for m in messages
         ]
@@ -118,7 +121,10 @@ async def sync_offline_messages(
                 "sender_name": m.sender.name if m.sender else "Unknown", 
                 "recipient_id": m.recipient_id, 
                 "group_id": m.group_id, 
-                "timestamp": m.timestamp.isoformat() if m.timestamp else None
+                "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+                "reply_to_id": m.reply_to_id,
+                "reply_to_content": m.reply_to_content,
+                "reply_to_sender": m.reply_to_sender
             } 
             for m in messages
         ]

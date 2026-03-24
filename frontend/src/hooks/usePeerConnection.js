@@ -17,11 +17,9 @@ export default function usePeerConnection({ onIceCandidate, onTrack } = {}) {
     const create = (iceServers = [{ urls: 'stun:stun.l.google.com:19302' }]) => {
         // Only create if it doesn't already exist
         if (pcRef.current) {
-            console.log('Peer connection already exists, returning existing');
             return pcRef.current;
         }
 
-        console.log('Creating new peer connection');
         const pc = new RTCPeerConnection({ iceServers });
 
         pc.onicecandidate = (event) => {
@@ -31,11 +29,11 @@ export default function usePeerConnection({ onIceCandidate, onTrack } = {}) {
         };
 
         pc.ontrack = (event) => {
-            console.log('ontrack event', event, 'track:', event.track, 'streams:', event.streams);
+            // console.log('ontrack event', event, 'track:', event.track, 'streams:', event.streams);
             if (onTrackRef.current) {
                 // Use the stream directly, or create from tracks if needed
                 const stream = event.streams?.[0] || new MediaStream([event.track]);
-                console.log('Passing stream to callback:', stream, 'tracks:', stream?.getTracks?.());
+                // console.log('Passing stream to callback:', stream, 'tracks:', stream?.getTracks?.());
                 onTrackRef.current(stream);
             }
         };
@@ -48,9 +46,9 @@ export default function usePeerConnection({ onIceCandidate, onTrack } = {}) {
         if (!pcRef.current) create();
         const audioTracks = stream.getAudioTracks();
         const videoTracks = stream.getVideoTracks();
-        console.log('Adding local stream - audio tracks:', audioTracks.length, 'video tracks:', videoTracks.length);
+        // console.log('Adding local stream - audio tracks:', audioTracks.length, 'video tracks:', videoTracks.length);
         stream.getTracks().forEach(track => {
-            console.log('Adding track:', track.kind, track.id);
+            // console.log('Adding track:', track.kind, track.id);
             pcRef.current.addTrack(track, stream);
         });
     };

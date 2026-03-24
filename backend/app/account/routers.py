@@ -147,6 +147,5 @@ async def logout(
 
 @router.get("/search")
 async def search_user(session: SessionDep, email: str):
-    print("here\n")
     user = await get_user_by_email(session, email)
     return user

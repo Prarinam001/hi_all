@@ -27,6 +27,9 @@ class Message(Base):
     sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("groups.id"), nullable=True)
     recipient_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reply_to_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    reply_to_content: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    reply_to_sender: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     sender: Mapped["User"] = relationship("User", foreign_keys=[sender_id])
     recipient: Mapped["User"] = relationship("User", foreign_keys=[recipient_id])
