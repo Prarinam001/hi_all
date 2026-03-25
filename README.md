@@ -1,61 +1,140 @@
-# ChatCop - Video Calling & Chat Application
+# Hi ALL - Real-Time Chat & Video Calling Application
 
-A WhatsApp-like application featuring real-time chat, group messaging, and video calling.
+A full-stack, offline-capable application featuring enterprise-level real-time chat, dynamic group messaging, and WebRTC video/audio calling.
 
-## Features
-- **User Authentication**: Signup, Login, Logout using JWT.
-- **Real-time Chat**: One-on-one and Group messaging.
-- **Video Calling**: Peer-to-Peer video calls using WebRTC.
-- **User Search**: Find users by email.
-- **Invites**: Send email invites to users not on the platform (Mock).
-- **Responsive Design**: Premium UI built with React & TailwindCSS.
+## 🚀 Features
+- **User Authentication**: Secure Signup, Login, and Session management using JWT Access & Refresh Tokens.
+- **Offline-First PWA Support**: All messages and group structures are aggressively cached directly to browser hardware using IndexedDB (`Dexie`), allowing instant loads and seamless network disruption handling.
+- **Real-Time WebSockets**: 
+  - Sub-millisecond 1-on-1 and Group messaging.
+  - Active read receipts, online indicators, and immediate push synchronization.
+  - System dynamic broadcasts (e.g., "*Admin removed John from the group*").
+- **Group Management Engine**: Group creation, Admin control schemas, dynamic member rendering and robust local-state purging.
+- **Video & Audio Calling**: Integrated Peer-to-Peer encrypted communication pipelines utilizing pure WebRTC signaling.
+- **User Search & Contacts**: Find users dynamically by registered email addressing.
 
-## Tech Stack
-- **Frontend**: React (Vite), TailwindCSS
-- **Backend**: FastAPI, SQLite, WebSockets
-- **Database**: SQLite (local `chat.db`)
+## 🛠️ Tech Stack
+- **Frontend**: 
+  - **Framework**: React.js powered by Vite
+  - **UI / Styling**: Material-UI (MUI), Lucide-React
+  - **Database**: IndexedDB (via `dexie` wrapper)
+  - **Connectivity**: Axios, Native JavaScript WebSockets
+- **Backend**:
+  - **Framework**: FastAPI (Asynchronous Python App Environment)
+  - **Database & ORM**: MySQL executed natively over raw TCP via `aiomysql` and `SQLAlchemy v2` Async Sessions.
+  - **Testing Infrastructure**: `pytest-asyncio` & `httpx` async clients
+- **Build / Packaging**: `npm` (Frontend), `uv` (Ultra-fast Python Environment Manager)
 
-## Prerequisites
-- Node.js & npm
-- Python 3.8+
+---
 
-## Setup Instructions
+## 📋 Prerequisites
+Ensure you have the following frameworks globally installed on your system before proceeding:
+- **Node.js**: v18+ & **npm**
+- **Python**: v3.9 or newer
+- **uv**: The rust-based python package installer. (`pip install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- **MySQL Database Server** running locally or remotely.
 
-### Backend
-1. Navigate to the `backend` folder:
+---
+
+## 🔧 Setup Instructions
+
+### 1. Backend Environment Configurations
+1. Navigate to the `backend` boundary directory.
    ```bash
    cd backend
    ```
-2. Create virtual environment (optional) and install dependencies:
+2. Spawn and engage a new Python virtual environment utilizing `uv`.
    ```bash
-   pip install -r requirements.txt
+   uv venv
+   
+   # Activate on Windows:
+   .venv\Scripts\activate
+   # Activate on Unix/Mac:
+   source .venv/bin/activate
    ```
-3. Run the server:
+3. Inject the server requirements using UV's high-speed pipelines:
    ```bash
-   uvicorn main:app --reload
+   
+   uv sync
    ```
-   Server runs at `http://localhost:8000`.
+   *(Note: For test execution capabilities, you may optionally append `uv pip install pytest-asyncio httpx aiosqlite`)*
+4. Environment Vaulting: Ensure you have an active `.env` file configuring your API secrets and MySQL connection parameters.
+   ```env
 
-### Frontend
-1. Navigate to the `frontend` folder:
+   JWT_SECRET_KEY = YOUR_JWT_SECRET_KEY
+   JWT_ALGORITHM = HS256
+   JWT_ACCESS_TOKEN_TIME_MIN = 5
+   JWT_REFRESH_TOKEN_TIME_DAY = 7
+
+   EMAIL_VERIFICATION_TOKEN_TIME_HOUR = 1
+   EMAIL_PASSWORD_RESET_TOKEN_TIME_HOUR = 2
+   FRONTEND_URL = "http://localhost:5173"
+
+   DB_USER=your_user
+   DB_PASSWORD=your_password
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_NAME=chat_database
+   ```
+5. Ignite the asynchronous WebSocket API Server:
+   ```bash
+   fastapi dev app/main.py
+   ```
+   *The backend will boot up locally at `http://localhost:8000`.*
+
+### 2. Frontend React Client Configurations
+1. Execute a directory jump to the root `frontend` boundary.
    ```bash
    cd frontend
    ```
-2. Install dependencies:
+2. Retrieve the complete NPM package dependency branch:
    ```bash
    npm install
    ```
-3. Run the development server:
+3. Secure your backend pointing variables inside `frontend/.env`
+   ```env
+   VITE_BACKEND_BASE_URL=http://localhost:8000
+   ```
+4. Run the dynamic React development suite:
    ```bash
    npm run dev
    ```
-   App runs at `http://localhost:5173`.
+   *The Progressive Web App portal will become fully accessible at `http://localhost:5173`.*
 
-## Testing
-- **Backend Tests**: Run `pytest` in the `backend` directory.
-- **Frontend Tests**: Run `npm test` in the `frontend` directory.
+---
 
-## Contributing
-1. Fork the repo
-2. Create a feature branch
-3. Submit a PR
+## 📂 System Directory Structure
+
+```text
+chatApp/
+├── backend/
+│   ├── app/
+│   │   ├── account/       # JWT Auth logic, User Pydantic schemas, routing.
+│   │   ├── chat/          # WS Connection dispatchers, groups, real-time message pipelines.
+│   │   ├── db/            # SQLAlchemy async metadata and MySQL TCP initializations.
+│   │   └── main.py        # Central FastAPI mount point
+│   ├── tests/             # Pytest Async suites validating isolated API triggers.
+│   ├── .env               # Server Database environment tokens (Hidden)
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # Reusable React UI forms, Modals, Call Overlays, Toolbars.
+│   │   ├── context/       # Auth state injection tunnels.
+│   │   ├── db/            # Offline-First Dexie databases mapping schemas.
+│   │   ├── hooks/         # Client-Side socket processors / React State syncs.
+│   │   ├── pages/         # High-level DOM mounting grids.
+│   │   └── services/      # Hardened Axios HTTPS request definitions.
+│   ├── .env               # Vite compilation targeting hooks (Hidden)
+│   ├── index.html
+│   ├── vite.config.js
+│   └── package.json
+└── README.md              # Project Documentation Reference
+```
+
+## 🧪 Testing
+
+- **Backend Pytest Harnesses**: Ensure your UV environment is active, then run tests over the isolated SQLite offline mock-database suite.
+  ```bash
+  cd backend
+  pytest tests/
+  ```
