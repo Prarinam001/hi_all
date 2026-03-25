@@ -1,6 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from typing import List
-from app.chat.services import build_connection_for_conversation, create_group, get_user_groups, add_member_to_group, leave_group
+from app.chat.services import build_connection_for_conversation, create_group, get_user_groups, add_member_to_group, leave_group, remove_member_from_group
 from app.chat.schemas import GroupCreate, GroupResponse, AddMemberRequest
 from app.db.config import SessionDep
 from app.account.models import User
@@ -8,7 +8,7 @@ from app.account.dependency import get_current_user
 from app.chat.services import get_conversations
 from app.chat.services import get_messages
 from app.chat.schemas import MessageAck
-from app.chat.services import get_offline_messages, acknowledge_messages
+from app.chat.services import get_offline_messages, acknowledge_messages, delete_conversation
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
@@ -61,6 +61,18 @@ async def leave_my_group(
     """
     return await leave_group(session, group_id, current_user)
 
+@router.delete("/groups/{group_id}/members/{user_id}", response_model=GroupResponse)
+async def remove_group_member(
+    group_id: int,
+    user_id: int,
+    session: SessionDep,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Removes a member from a chat group (Admin only).
+    """
+    return await remove_member_from_group(session, group_id, user_id, current_user)
+
 @router.get("/conversations", response_model=List[dict]) 
 async def get_my_conversations(
     session: SessionDep,
@@ -71,6 +83,18 @@ async def get_my_conversations(
     Used for rendering the main conversation list in the chat sidebar.
     """
     return await get_conversations(session, current_user)
+
+@router.delete("/conversations/{other_user_id}")
+async def remove_conversation(
+    other_user_id: int,
+    session: SessionDep,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes a conversation and all its chat history between the two users.
+    Used when a user wants to delete a contact/conversation.
+    """
+    return await delete_conversation(session, other_user_id, current_user.id)
 
 @router.get("/messages", response_model=List[dict])
 async def get_chat_history(

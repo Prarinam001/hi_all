@@ -38,3 +38,6 @@
 /frontend/*.njsproj
 /frontend/*.sln
 /frontend/*.sw?
+/frontend/.env
+/frontend/test.db
+

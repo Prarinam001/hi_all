@@ -11,6 +11,7 @@ import EmptyChatState from '../components/EmptyChatState';
 import useWebSocket from '../hooks/useWebSocket';
 import useChatManager from '../hooks/useChatManager';
 import useCallManager from '../hooks/useCallManager';
+import { deleteLocalConversationData } from '../db/db';
 
 const styles = {
     chatPageContainer: {
@@ -60,9 +61,20 @@ export default function Chat() {
         sendMessage,
         loadLocalMessagesForUser,
         addMember,
+        removeMember,
         groupLeave,
         unreads
     } = useChatManager(user, api, setConversations, selectedUser);
+
+    useEffect(() => {
+        if (selectedUser?.isGroup && groups) {
+            const exists = groups.find(g => g.id === selectedUser.id);
+            if (!exists) {
+                // If we get kicked out of a group, auto-kick our UI from lingering inside it!
+                setSelectedUser(null);
+            }
+        }
+    }, [groups, selectedUser]);
 
     useEffect(() => {
         if (selectedUser) {
@@ -124,6 +136,23 @@ export default function Chat() {
         setTimeout(() => setCopiedEmail(null), 2000);
     };
 
+    const handleDeleteConversation = async (convId, otherUserId) => {
+        try {
+            await api.delete(`/api/chat/conversations/${otherUserId}`);
+            setConversations(prev => prev.filter(c => c.other_user_id !== otherUserId));
+            
+            // Delete localized db logs
+            await deleteLocalConversationData(otherUserId);
+            
+            if (selectedUser && selectedUser.id === otherUserId && !selectedUser.isGroup) {
+                setSelectedUser(null);
+            }
+        } catch (err) {
+            console.error("Failed to delete conversation", err);
+            alert("Failed to delete chat.");
+        }
+    };
+
     return (
         <Box sx={styles.chatPageContainer}>
             <Box sx={styles.sidebarDesktop}>
@@ -137,6 +166,7 @@ export default function Chat() {
                     onCopy={copyEmailToClipboard}
                     unreads={unreads}
                     onGroupCreated={(g) => { addGroup(g); setSelectedUser({ ...g, isGroup: true }); }}
+                    onDeleteConversation={handleDeleteConversation}
                 />
             </Box>
 
@@ -157,6 +187,7 @@ export default function Chat() {
                     unreads={unreads}
                     onClose={() => setMobileOpen(false)}
                     onGroupCreated={(g) => { addGroup(g); setSelectedUser({ ...g, isGroup: true }); }}
+                    onDeleteConversation={handleDeleteConversation}
                 />
             </Drawer>
 
@@ -171,7 +202,14 @@ export default function Chat() {
                             copiedEmail={copiedEmail}
                             onCopy={copyEmailToClipboard}
                             onSidebarToggle={() => setMobileOpen(true)}
-                            onAddMember={addMember}
+                            onAddMember={async (groupId, email) => {
+                                const updated = await addMember(groupId, email);
+                                setSelectedUser({ ...updated, isGroup: true });
+                            }}
+                            onRemoveMember={async (groupId, userId) => {
+                                const updated = await removeMember(groupId, userId);
+                                setSelectedUser({ ...updated, isGroup: true });
+                            }}
                             onLeaveGroup={async (id) => {
                                 try {
                                     await groupLeave(id);

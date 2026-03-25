@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Box, Avatar, Typography, IconButton, Menu, MenuItem, Dialog, DialogTitle, DialogContent, TextField, DialogActions, Button } from '@mui/material';
-import { Video, Phone, MoreVertical, Menu as MenuIcon, UserPlus, LogOut } from 'lucide-react';
+import { Video, Phone, MoreVertical, Menu as MenuIcon, UserPlus, LogOut, Users } from 'lucide-react';
 import EmailTooltip from './EmailTooltip';
+import GroupMembersModal from './GroupMembersModal';
 
 const styles = {
     header: {
@@ -41,10 +42,12 @@ export default function ChatHeader({
     onCopy,
     onSidebarToggle,
     onAddMember,
+    onRemoveMember,
     onLeaveGroup
 }) {
     const [anchorEl, setAnchorEl] = useState(null);
     const [addMemberOpen, setAddMemberOpen] = useState(false);
+    const [membersOpen, setMembersOpen] = useState(false);
     const [email, setEmail] = useState('');
 
     const isCreator = selectedUser?.isGroup && user?.id === selectedUser?.created_by;
@@ -62,6 +65,15 @@ export default function ChatHeader({
             alert("Member added successfully");
         } catch (err) {
             alert(err.response?.data?.detail || "Failed to add member");
+        }
+    };
+
+    const handleRemoveMember = async (groupId, userId) => {
+        try {
+            await onRemoveMember(groupId, userId);
+            alert("Member removed successfully");
+        } catch (err) {
+            alert(err.response?.data?.detail || "Failed to remove member");
         }
     };
 
@@ -89,8 +101,13 @@ export default function ChatHeader({
                     open={Boolean(anchorEl)}
                     onClose={handleMenuClose}
                 >
+                    {selectedUser?.isGroup && (
+                        <MenuItem onClick={() => { setMembersOpen(true); handleMenuClose(); }}>
+                            <Users size={18} style={{ marginRight: 8 }} /> See Members
+                        </MenuItem>
+                    )}
                     {selectedUser?.isGroup && isCreator && (
-                        <MenuItem onClick={() => setAddMemberOpen(true)}>
+                        <MenuItem onClick={() => { setAddMemberOpen(true); handleMenuClose(); }}>
                             <UserPlus size={18} style={{ marginRight: 8 }} /> Add Member
                         </MenuItem>
                     )}
@@ -122,6 +139,14 @@ export default function ChatHeader({
                     <Button onClick={handleAddMember} variant="contained">Add</Button>
                 </DialogActions>
             </Dialog>
+
+            <GroupMembersModal 
+                open={membersOpen} 
+                onClose={() => setMembersOpen(false)} 
+                group={selectedUser} 
+                user={user} 
+                onRemoveMember={handleRemoveMember} 
+            />
         </Box>
     );
 }

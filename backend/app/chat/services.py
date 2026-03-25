@@ -87,6 +87,38 @@ async def add_member_to_group(session: AsyncSession, group_id: int, email: str, 
     new_member = GroupMember(user_id=user_to_add.id, group_id=group_id)
     session.add(new_member)
     await session.commit()
+    
+    # Broadcast system message
+    sys_content = f"__SYSTEM__:{current_user.name} added {user_to_add.name}"
+    sys_msg = Message(
+        content=sys_content,
+        sender_id=current_user.id,
+        group_id=group_id,
+        timestamp=datetime.datetime.utcnow()
+    )
+    session.add(sys_msg)
+    await session.commit()
+    await session.refresh(sys_msg)
+    
+    await update_group_metadata(session, group_id, sys_content)
+    await session.commit()
+    
+    members = await get_group_members(session, group_id)
+    msg_data = {
+        "type": "chat",
+        "id": sys_msg.id,
+        "content": sys_content,
+        "sender_id": current_user.id,
+        "sender_name": current_user.name,
+        "group_id": group_id,
+        "timestamp": sys_msg.timestamp.isoformat()
+    }
+    for m_id in members:
+        await manager.send_personal_message(json.dumps(msg_data), m_id)
+
+    # Delete the system message from DB as requested
+    await session.delete(sys_msg)
+    await session.commit()
 
     # Return updated group
     stmt = select(Group).options(
@@ -108,7 +140,40 @@ async def leave_group(session: AsyncSession, group_id: int, current_user: User):
     
     if not member:
         raise HTTPException(status_code=404, detail="Membership not found")
+        
+    sys_content = f"__SYSTEM__:{current_user.name} left the group"
+    sys_msg = Message(
+        content=sys_content,
+        sender_id=current_user.id,
+        group_id=group_id,
+        timestamp=datetime.datetime.utcnow()
+    )
+    session.add(sys_msg)
+    await session.commit()
+    await session.refresh(sys_msg)
+    
+    await update_group_metadata(session, group_id, sys_content)
+    await session.commit()
+        
     await session.delete(member)
+    await session.commit()
+    
+    # Broadcast to remaining members
+    members = await get_group_members(session, group_id)
+    msg_data = {
+        "type": "chat",
+        "id": sys_msg.id,
+        "content": sys_content,
+        "sender_id": current_user.id,
+        "sender_name": current_user.name,
+        "group_id": group_id,
+        "timestamp": sys_msg.timestamp.isoformat()
+    }
+    for m_id in members:
+        await manager.send_personal_message(json.dumps(msg_data), m_id)
+
+    # Delete the system message from DB as requested
+    await session.delete(sys_msg)
 
     group_stmt = select(Group).where((Group.created_by == current_user.id) & (Group.id == group_id))
     result = await session.scalar(group_stmt)
@@ -117,6 +182,63 @@ async def leave_group(session: AsyncSession, group_id: int, current_user: User):
 
     await session.commit()
     return {"status": "success"}
+
+async def remove_member_from_group(session: AsyncSession, group_id: int, user_id_to_remove: int, current_user: User):
+    stmt = select(Group).where(Group.id == group_id)
+    group = (await session.scalars(stmt)).first()
+    
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the creator can remove members")
+        
+    member_stmt = select(GroupMember).where((GroupMember.group_id == group_id) & (GroupMember.user_id == user_id_to_remove))
+    member = (await session.scalars(member_stmt)).first()
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="User is not a member of this group")
+        
+    u_stmt = select(User).where(User.id == user_id_to_remove)
+    removed_user = (await session.scalars(u_stmt)).first()
+    
+    sys_content = f"__SYSTEM__:{current_user.name} removed {removed_user.name}"
+    sys_msg = Message(
+        content=sys_content,
+        sender_id=current_user.id,
+        group_id=group_id,
+        timestamp=datetime.datetime.utcnow()
+    )
+    session.add(sys_msg)
+    await session.commit()
+    await session.refresh(sys_msg)
+    
+    await update_group_metadata(session, group_id, sys_content)
+    await session.commit()
+    
+    members = await get_group_members(session, group_id)
+    msg_data = {
+        "type": "chat",
+        "id": sys_msg.id,
+        "content": sys_content,
+        "sender_id": current_user.id,
+        "sender_name": current_user.name,
+        "group_id": group_id,
+        "removed_user_id": user_id_to_remove,
+        "timestamp": sys_msg.timestamp.isoformat()
+    }
+    for m_id in members:
+        await manager.send_personal_message(json.dumps(msg_data), m_id)
+
+    await session.delete(sys_msg)
+    await session.delete(member)
+    await session.commit()
+
+    stmt = select(Group).options(
+        selectinload(Group.members).selectinload(GroupMember.user)
+    ).where(Group.id == group_id)
+    result = await session.scalars(stmt)
+    return result.first()
 
 async def get_conversations(session: AsyncSession, current_user: User):
     
@@ -147,6 +269,7 @@ async def get_conversations(session: AsyncSession, current_user: User):
             "other_user_id": other_user_id,
             "other_user_name": other_user.name if other_user else f"User {other_user_id}",
             "other_user_email": other_user.email if other_user else "",
+            "other_user_phone_number": other_user.phone_number if other_user else "",
             "last_message": conv.last_message,
             "last_message_time": conv.last_message_time,
             "created_at": conv.created_at
@@ -334,3 +457,30 @@ async def build_connection_for_conversation(websocket: WebSocket, user_id: int, 
 
     finally:
         manager.disconnect(user_id)
+
+async def delete_conversation(session: AsyncSession, other_user_id: int, current_user_id: int):
+    # Fetch the conversation
+    stmt = select(Conversation).where(
+        ((Conversation.user_id == current_user_id) & (Conversation.other_user_id == other_user_id)) |
+        ((Conversation.user_id == other_user_id) & (Conversation.other_user_id == current_user_id))
+    )
+    result = await session.scalars(stmt)
+    conv = result.first()
+    
+    # Delete all messages between these two users
+    msg_stmt = select(Message).where(
+        or_(
+            and_(Message.sender_id == current_user_id, Message.recipient_id == other_user_id),
+            and_(Message.sender_id == other_user_id, Message.recipient_id == current_user_id)
+        )
+    ).where(Message.group_id == None)
+
+    messages = (await session.scalars(msg_stmt)).all()
+    for msg in messages:
+        await session.delete(msg)
+
+    # Delete conversation if it exists
+    if conv: 
+        await session.delete(conv)
+    await session.commit()
+    return {"status": "success"}

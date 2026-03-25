@@ -63,6 +63,27 @@ export default function MessageList({ messages = [], selectedUser, onReplyClick 
     return (
         <Box sx={styles.container}>
             {messages.map((msg, i) => {
+                const isSystem = msg.content && msg.content.startsWith('__SYSTEM__:');
+                const contentText = isSystem ? msg.content.replace('__SYSTEM__:', '') : msg.content;
+                
+                if (isSystem) {
+                    return (
+                        <Box key={i} sx={{ display: 'flex', width: '100%', justifyContent: 'center', my: 1.5 }}>
+                            <Typography variant="caption" sx={{ 
+                                bgcolor: 'rgba(0,0,0,0.4)', 
+                                color: 'white', 
+                                px: 2, 
+                                py: 0.5, 
+                                borderRadius: 4, 
+                                fontSize: '0.75rem',
+                                opacity: 0.85
+                            }}>
+                                {contentText}
+                            </Typography>
+                        </Box>
+                    );
+                }
+
                 const hasInlineReply = !!msg.reply_to_content;
                 let repliedMsg = null;
                 if (hasInlineReply) {
@@ -122,7 +143,7 @@ export default function MessageList({ messages = [], selectedUser, onReplyClick 
                                         {msg.sender_name || selectedUser?.full_name || selectedUser?.name || 'Unknown'}
                                     </Typography>
                                 )}
-                                <Typography variant="body1">{msg.content}</Typography>
+                                <Typography variant="body1">{contentText}</Typography>
                                 <Typography variant="caption" sx={styles.timestamp}>
                                     {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                 </Typography>
