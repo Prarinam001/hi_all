@@ -8,9 +8,15 @@ const api = axios.create({
     withCredentials: true, // Enable cookies for auth
 });
 
-// Response interceptor to automatically refresh tokens
+// Response interceptor to automatically refresh tokens and protect against SPA routing traps
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // Protect against accidental Cloudflare Page SPA catch-all returns (HTML instead of JSON API responses)
+        if (response.headers['content-type'] && response.headers['content-type'].includes('text/html')) {
+            return Promise.reject(new Error("API returned HTML instead of JSON. Your VITE_BACKEND_BASE_URL is likely missing or misconfigured in Cloudflare."));
+        }
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
 
