@@ -76,11 +76,26 @@ Ensure you have the following frameworks globally installed on your system befor
    DB_PORT=3306
    DB_NAME=chat_database
    ```
-5. Ignite the asynchronous WebSocket API Server:
+5. Build your database tables using Alembic migrations:
+   ```bash
+   alembic upgrade head
+   ```
+6. Ignite the asynchronous WebSocket API Server:
    ```bash
    fastapi dev app/main.py
    ```
    *The backend will boot up locally at `http://localhost:8000`.*
+
+### 📝 Database Migrations (Alembic Guide)
+If you ever modify the Python database models (e.g. adding a new table or column), run these commands to synchronize the MySQL database schema:
+1. Auto-generate the new migration script:
+   ```bash
+   alembic revision --autogenerate -m "describe_your_changes"
+   ```
+2. Apply the newly created migration to your database:
+   ```bash
+   alembic upgrade head
+   ```
 
 ### 2. Frontend React Client Configurations
 1. Execute a directory jump to the root `frontend` boundary.
