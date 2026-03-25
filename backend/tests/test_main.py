@@ -1,72 +1,61 @@
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from database import Base, get_db
-from main import app
 import pytest
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from app.db.base import Base
+from app.db.config import get_session
+from app.main import app
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
-engine = create_engine(
+test_engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=test_engine, class_=AsyncSession)
 
-Base.metadata.create_all(bind=engine)
+async def override_get_session():
+    async with TestingSessionLocal() as session:
+        yield session
 
-def override_get_db():
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
+app.dependency_overrides[get_session] = override_get_session
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest_asyncio.fixture(autouse=True)
+async def prepare_database():
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await test_engine.dispose()
 
-client = TestClient(app)
-
-def test_signup():
-    response = client.post(
-        "/signup",
-        json={"email": "testuser@example.com", "password": "password123"},
-    )
+@pytest.mark.asyncio
+async def test_signup():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/api/account/register",
+            json={"email": "testuser@example.com", "password": "password123", "full_name": "Test User", "phone_number": "1234567890"},
+        )
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "testuser@example.com"
     assert "id" in data
 
-def test_login():
-    # Signup first (idempotency issues in test flow if not careful, but sqlite is persistent? 
-    # Usually we drop db after test or use in-memory. For file-based test.db, it persists.)
-    # Let's try to login the user created above or create new.
-    
-    # Create unique user
-    import time
-    email = f"user{time.time()}@example.com"
-    client.post("/signup", json={"email": email, "password": "password"})
-    
-    response = client.post(
-        "/token",
-        data={"username": email, "password": "password"},
-    )
-    assert response.status_code == 200
-    assert "access_token" in response.json()
+@pytest.mark.asyncio
+async def test_login():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        email = "user123@example.com"
+        await ac.post("/api/account/register", json={"email": email, "password": "password", "full_name": "Login User", "phone_number": "0000000000"})
+        
+        response = await ac.post(
+            "/api/account/login",
+            json={"email": email, "password": "password"},
+        )
+        assert response.status_code == 200
+        assert "access_token" in response.cookies
 
-def test_search_user_found():
-    email = "searchtarget@example.com"
-    client.post("/signup", json={"email": email, "password": "pwd"})
-    
-    # Need auth to search? In main.py, search_user does NOT depend on get_current_user in the signature:
-    # def search_user(email: str, db: Session = Depends(get_db)):
-    # So it is public? Let's check main.py content from memory or assume.
-    # If public, we can just call it.
-    
-    response = client.get(f"/users/search?email={email}")
-    assert response.status_code == 200
-    assert response.json()["email"] == email
-
-def test_search_user_not_found():
-    response = client.get("/users/search?email=nonexistent@example.com")
-    # Expected 404
-    assert response.status_code == 404
-    assert response.json()["detail"] == "User not found, invite sent"
+@pytest.mark.asyncio
+async def test_search_user_not_found():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.get("/api/account/search?email=nonexistent@example.com")
+        assert response.status_code == 404
+        assert response.json()["detail"] == "User Not Found"

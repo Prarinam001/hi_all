@@ -1,13 +1,18 @@
 import asyncio
 import json
-from app.db.config import async_session
+import pytest
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from app.db.config import async_session, engine
 from app.chat.services import build_connection_for_conversation
 
 class DummyManager:
     async def connect(self, ws, uid): pass
     def disconnect(self, uid): pass
     async def send_personal_message(self, text, uid):
-        print(f"Sent to {uid}: {text}")
+        pass
 
 import app.chat.services
 app.chat.services.manager = DummyManager()
@@ -29,8 +34,13 @@ class DummyWS:
             raise Exception("done")
         return self.messages.pop(0)
 
-async def run():
-    async with async_session() as session:
-        await build_connection_for_conversation(DummyWS(), user_id=1, session=session)
-
-asyncio.run(run())
+@pytest.mark.asyncio
+async def test_ws_handler():
+    try:
+        async with async_session() as session:
+            await build_connection_for_conversation(DummyWS(), user_id=1, session=session)
+    except Exception as e:
+        # Expected exception 'done' when messages run out
+        assert str(e) == "done"
+    finally:
+        await engine.dispose()

@@ -14,13 +14,12 @@ export default function useConversations() {
             setConversations(local);
         }
 
-        // 2. Sync from server (DISABLED for local-first)
-        /*
+        // 2. Sync from server
         try {
             const list = await conversationService.getConversations();
             if (Array.isArray(list)) {
                 setConversations(list);
-                // Save to local
+                // Save back to local DB to heal any offline cache structure bugs instantly
                 for (const conv of list) {
                     await saveLocalConversation(conv);
                 }
@@ -28,7 +27,6 @@ export default function useConversations() {
         } catch (err) {
             console.error('Failed to fetch conversations', err);
         }
-        */
     }, [api]);
 
     useEffect(() => {

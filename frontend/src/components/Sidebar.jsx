@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Box, Avatar, IconButton, List, ListItem, ListItemText, Typography, Button, Divider, ListItemIcon, Collapse, ListItemAvatar, Badge } from '@mui/material';
-import { LogOut, X, Users, MessageSquare, Plus } from 'lucide-react'; // Added icons
+import { Box, Avatar, IconButton, List, ListItem, ListItemText, Typography, Button, Divider, ListItemIcon, Collapse, ListItemAvatar, Badge, Menu, MenuItem } from '@mui/material';
+import { LogOut, X, Users, MessageSquare, Plus, MoreVertical } from 'lucide-react'; // Added icons
 import UserSearch from '../components/UserSearch';
 import CreateGroupModal from './CreateGroupModal';
 import EmailTooltip from './EmailTooltip';
@@ -52,10 +52,31 @@ const styles = {
     }
 };
 
-export default function Sidebar({ user, conversations = [], groups = [], unreads = {}, onSelect, onLogout, copiedEmail, onCopy, onClose, onGroupCreated }) {
+export default function Sidebar({ user, conversations = [], groups = [], unreads = {}, onSelect, onLogout, copiedEmail, onCopy, onClose, onGroupCreated, onDeleteConversation }) {
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showGroups, setShowGroups] = useState(true);
     const [showDirect, setShowDirect] = useState(true);
+
+    const [convOptionsAnchor, setConvOptionsAnchor] = useState(null);
+    const [selectedConv, setSelectedConv] = useState(null);
+
+    const handleMenuOpen = (e, conv) => {
+        e.stopPropagation();
+        setConvOptionsAnchor(e.currentTarget);
+        setSelectedConv(conv);
+    }
+    const handleMenuClose = (e) => {
+        if (e) e.stopPropagation();
+        setConvOptionsAnchor(null);
+        setSelectedConv(null);
+    }
+    const handleDelete = (e) => {
+        e.stopPropagation();
+        if (selectedConv && onDeleteConversation) {
+            onDeleteConversation(selectedConv.id, selectedConv.other_user_id);
+        }
+        handleMenuClose();
+    }
 
     if (!user) return null;
 
@@ -129,9 +150,37 @@ export default function Sidebar({ user, conversations = [], groups = [], unreads
                     <List component="div" disablePadding>
                         {conversations.length > 0 ? (
                             conversations.map(conv => (
-                                <ListItem key={conv.other_user_id} button divider sx={{ pl: 4 }} onClick={() => onSelect({ id: conv.other_user_id, full_name: conv.other_user_name || conv.name, email: conv.other_user_email, isGroup: false })}>
+                                <ListItem 
+                                    key={conv.other_user_id} 
+                                    button 
+                                    divider 
+                                    sx={{ pl: 4, pr: 7, "&:hover .conv-options": { opacity: 1 } }} 
+                                    onClick={() => onSelect({ id: conv.other_user_id, full_name: conv.other_user_name || conv.name, email: conv.other_user_email, isGroup: false })}
+                                    secondaryAction={
+                                        <IconButton
+                                            edge="end"
+                                            className="conv-options"
+                                            onClick={(e) => handleMenuOpen(e, conv)}
+                                        >
+                                            <MoreVertical size={18} />
+                                        </IconButton>
+                                    }
+                                >
                                     <Badge color="error" variant="dot" invisible={!unreads[conv.other_user_id]} sx={{ width: '100%', '& .MuiBadge-badge': { right: 10, top: 20 } }}>
-                                        <ListItemText primary={conv.other_user_name || conv.name || `User ${conv.other_user_id}`} secondary={conv.last_message || 'No messages'} secondaryTypographyProps={{ noWrap: true }} />
+                                        <ListItemText 
+                                            primary={conv.other_user_name || conv.name || `User ${conv.other_user_id}`} 
+                                            secondary={
+                                                <Box component="span" sx={{ display: 'flex', flexDirection: 'column', mt: 0.5 }}>
+                                                    <Typography component="span" variant="body2" color="text.secondary">
+                                                        {conv.other_user_email || 'No email'}
+                                                    </Typography>
+                                                    <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', mt: 0.25 }}>
+                                                        {conv.other_user_phone_number || 'No phone number'}
+                                                    </Typography>
+                                                </Box>
+                                            } 
+                                            secondaryTypographyProps={{ component: 'div' }} 
+                                        />
                                     </Badge>
                                 </ListItem>
                             ))
@@ -149,6 +198,14 @@ export default function Sidebar({ user, conversations = [], groups = [], unreads
                 onClose={() => setShowCreateGroup(false)}
                 onGroupCreated={onGroupCreated}
             />
+
+            <Menu
+                anchorEl={convOptionsAnchor}
+                open={Boolean(convOptionsAnchor)}
+                onClose={handleMenuClose}
+            >
+                <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>Delete Chat</MenuItem>
+            </Menu>
         </Box>
     );
 }

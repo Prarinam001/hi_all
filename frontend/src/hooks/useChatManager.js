@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getGroups, addMemberToGroup, leaveGroup } from '../services/groupService';
+import { getGroups, addMemberToGroup, leaveGroup, removeGroupMember } from '../services/groupService';
 import { saveLocalMessage, getLocalMessages, bulkSaveLocalMessages, saveLocalGroups, getLocalGroups, saveLocalGroup, saveLocalConversation, deleteLocalGroupData } from '../db/db';
 
 export default function useChatManager(user, api, setConversations, selectedUser) {
@@ -92,12 +92,20 @@ export default function useChatManager(user, api, setConversations, selectedUser
     }, [user, api]);
 
     const handleChatMessage = useCallback((data) => {
-        // Skip echo of own messages to avoid duplication (already added optimistically in sendMessage)
-        if (data.sender_id === user.id) return;
+        const isSystem = data.content && data.content.startsWith('__SYSTEM__:');
+        
+        // Skip echo of own normal messages to avoid duplication (already added optimistically in sendMessage)
+        if (data.sender_id === user.id && !isSystem) return;
 
         // Automatically ACK received messages to remove from backend DB
         if (data.id && api && !data.skipAck) {
             api.post('/api/chat/messages/ack', { message_ids: [data.id] }).catch(err => console.error("ACK failed", err));
+        }
+
+        if (data.removed_user_id === user.id && data.group_id) {
+            deleteLocalGroupData(data.group_id);
+            setGroups(prev => prev.filter(g => g.id !== data.group_id));
+            return;
         }
 
         const otherId = data.sender_id === user.id ? data.recipient_id : data.sender_id;
@@ -169,6 +177,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
                             other_user_id: data.sender_id,
                             other_user_name: data.sender_name || (data.sender_id === user.id ? (user.full_name || user.name) : 'Unknown'),
                             other_user_email: data.sender_email || '',
+                            other_user_phone_number: data.sender_phone_number || '',
                             last_message: data.content,
                             last_message_time: data.timestamp
                         };
@@ -184,6 +193,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
                     other_user_id: otherId,
                     other_user_name: data.sender_name || (data.sender_id === user.id ? (user.full_name || user.name) : 'Unknown'),
                     other_user_email: data.sender_email || '',
+                    other_user_phone_number: data.sender_phone_number || '',
                     last_message: data.content,
                     last_message_time: data.timestamp
                 };
@@ -234,6 +244,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
             sender_id: user.id,
             sender_name: user.full_name || user.name,
             sender_email: user.email,
+            sender_phone_number: user.phone_number || '',
             recipient_id: selectedUser.isGroup ? null : selectedUser.id,
             group_id: selectedUser.isGroup ? selectedUser.id : null,
             target_id: selectedUser.isGroup ? null : selectedUser.id,
@@ -273,6 +284,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
                         other_user_id: selectedUser.id,
                         other_user_name: selectedUser.full_name,
                         other_user_email: selectedUser.email,
+                        other_user_phone_number: selectedUser.phone_number || '',
                         last_message: input,
                         last_message_time: msg.timestamp
                     };
@@ -285,6 +297,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
                     other_user_id: selectedUser.id,
                     other_user_name: selectedUser.full_name,
                     other_user_email: selectedUser.email,
+                    other_user_phone_number: selectedUser.phone_number || '',
                     last_message: input,
                     last_message_time: msg.timestamp
                 };
@@ -319,6 +332,18 @@ export default function useChatManager(user, api, setConversations, selectedUser
         }
     }, []);
 
+    const removeMember = useCallback(async (groupId, userId) => {
+        try {
+            const updatedGroup = await removeGroupMember(groupId, userId);
+            setGroups(prev => prev.map(g => g.id === groupId ? updatedGroup : g));
+            await saveLocalGroup(updatedGroup);
+            return updatedGroup;
+        } catch (err) {
+            console.error("Failed to remove member", err);
+            throw err;
+        }
+    }, []);
+
     const groupLeave = useCallback(async (groupId) => {
         try {
             await leaveGroup(groupId);
@@ -337,6 +362,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
         setGroups,
         addGroup,
         addMember,
+        removeMember,
         groupLeave,
         input,
         setInput,

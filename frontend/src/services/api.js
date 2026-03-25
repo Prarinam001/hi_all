@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const backendBaseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
+
 const api = axios.create({
-    baseURL: 'http://localhost:8000',
+    baseURL: backendBaseUrl,
+    //baseURL: 'http://localhost:8000',
     withCredentials: true, // Enable cookies for auth
 });
 
@@ -15,8 +18,10 @@ api.interceptors.response.use(
         if (
             error.response?.status === 401 &&
             !originalRequest._retry &&
-            originalRequest.url !== '/api/account/refresh' &&
-            originalRequest.url !== '/api/account/login'
+            // avoid refreshing if the request is already a refresh/login req
+            // check for both with and without trailing slash or baseurl
+            !originalRequest.url?.includes('/api/account/refresh') &&
+            !originalRequest.url?.includes('/api/account/login')
         ) {
             originalRequest._retry = true;
             try {

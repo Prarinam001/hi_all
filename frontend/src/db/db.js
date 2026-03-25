@@ -103,3 +103,25 @@ export const deleteLocalGroupData = async (groupId) => {
     await db.groups.delete(groupId);
     await db.messages.where('group_id').equals(groupId).delete();
 };
+
+export const deleteLocalConversationData = async (otherUserId) => {
+    const numId = Number(otherUserId);
+    
+    // Delete from conversations
+    await db.conversations.delete(numId);
+    await db.conversations.delete(String(otherUserId)); // Handle possible string keys
+    
+    // Delete messages where sender_id == otherUserId
+    await db.messages
+        .where('sender_id')
+        .equals(numId)
+        .filter(m => !m.group_id)
+        .delete();
+        
+    // Delete messages where recipient_id == otherUserId
+    await db.messages
+        .where('recipient_id')
+        .equals(numId)
+        .filter(m => !m.group_id)
+        .delete();
+};
