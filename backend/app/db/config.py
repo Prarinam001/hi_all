@@ -12,7 +12,15 @@ DB_HOST = config("DB_HOST")
 DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 # DATABASE_URL = "sqlite+aiosqlite:///./app.db"
 
-engine = create_async_engine(DATABASE_URL, echo=True, future=True, pool_pre_ping=True)
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=True, 
+    future=True, 
+    pool_pre_ping=True,
+    connect_args={
+        "ssl": {"ssl": True}
+    }
+)
 async_session = async_sessionmaker(
     bind=engine, expire_on_commit=False, class_=AsyncSession
 )
