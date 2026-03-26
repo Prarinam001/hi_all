@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from app.account.routers import router as account_router
-
 from app.chat.routers import router as chat_router
 from fastapi.middleware.cors import CORSMiddleware
 from decouple import config
@@ -8,7 +7,11 @@ from decouple import config
 
 app = FastAPI(title="Hi ALL App")
 
-origin = [config("FRONTEND_URL")]
+origin = [
+    config("FRONTEND_URL"), 
+    config("CLOUDFLARE_DEFAULT_PAGE_URL")
+]
+
 
 app.add_middleware(
     CORSMiddleware,
