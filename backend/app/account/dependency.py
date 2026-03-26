@@ -8,10 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 async def get_current_user(session: SessionDep, request: Request):
-    logger.info(f"Incoming cookies: {request.cookies}")
-    print(f"Incoming cookies: {request.cookies}")
     token = request.cookies.get("access_token")
-    logger.info(f"access_token from cookies: {token}")
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -19,8 +16,6 @@ async def get_current_user(session: SessionDep, request: Request):
             headers={"WWW-Authenticate": "Bearer"},
         )
     payload = decode_token(token)
-    logger.info(f"payload------------------------: {payload}")
-    print(f"payload------------------------: {payload}")
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -28,8 +23,6 @@ async def get_current_user(session: SessionDep, request: Request):
             headers={"WWW-Authenticate": "Bearer"},
         )
     user_id = payload.get("sub")
-    logger.info(f"user id------------------------: {user_id}")
-    print(f"user id------------------------: {user_id}")
     if not user_id:
         raise HTTPException(    
             status_code=status.HTTP_401_UNAUTHORIZED,
