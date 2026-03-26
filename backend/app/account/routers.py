@@ -53,7 +53,7 @@ async def login(session: SessionDep, user_login: UserLogin):
         value=tokens["refresh_token"],
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",
         max_age=60 * 60 * 24 * 7,
     )
     return response
@@ -141,8 +141,8 @@ async def logout(
     if refress_token:
         await revoke_refresh_token(session, refress_token)
     response = JSONResponse(content={"detail": "Logged out"})
-    response.delete_cookie("refresh_token")
-    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token", samesite="none", secure=True)
+    response.delete_cookie("access_token", samesite="none", secure=True)
     return response
 
 @router.get("/search")
