@@ -7,6 +7,7 @@ from app.account.utils import decode_token
 
 async def get_current_user(session: SessionDep, request: Request):
     token = request.cookies.get("access_token")
+    print("token------------------------: ", token)
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -14,7 +15,7 @@ async def get_current_user(session: SessionDep, request: Request):
             headers={"WWW-Authenticate": "Bearer"},
         )
     payload = decode_token(token)
-    # print("payload------------------------: ", payload)
+    print("payload------------------------: ", payload)
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
