@@ -19,7 +19,8 @@ export default function useWebSocket(userId, onMessage, enabled = true) {
 
         const connect = () => {
             const wsBaseUrl = import.meta.env.VITE_BACKEND_BASE_URL.replace(/^http/, 'ws');
-            const socket = new WebSocket(`${wsBaseUrl}/api/chat/ws/${userId}`);
+            const token = localStorage.getItem('ha_access_token');
+            const socket = new WebSocket(`${wsBaseUrl}/api/chat/ws/${userId}?token=${token}`);
             wsRef.current = socket;
 
             socket.onopen = () => {

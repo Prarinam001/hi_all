@@ -9,6 +9,8 @@ from app.chat.services import get_conversations
 from app.chat.services import get_messages
 from app.chat.schemas import MessageAck
 from app.chat.services import get_offline_messages, acknowledge_messages, delete_conversation
+from app.account.utils import decode_token
+from fastapi import Query
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
@@ -169,11 +171,17 @@ async def ack_messages(
 async def start_conversation(
     websocket: WebSocket, 
     user_id: int,
-    session: SessionDep
+    session: SessionDep,
+    token: str = Query(None)
 ):
-    """
-    Establishes a persistent WebSocket connection for real-time bidirectional communication.
-    Used as the core transport layer for sending and receiving instant messages.
-    """
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    payload = decode_token(token)
+    if not payload or int(payload.get("sub")) != user_id:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await build_connection_for_conversation(websocket, user_id, session)
 
