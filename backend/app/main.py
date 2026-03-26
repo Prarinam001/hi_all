@@ -7,7 +7,7 @@ from decouple import config
 
 app = FastAPI(title="Hi ALL App")
 
-origin = [
+origins = [
     config("FRONTEND_URL"), 
     config("CLOUDFLARE_DEFAULT_PAGE_URL")
 ]
@@ -15,7 +15,7 @@ origin = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origin,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
