@@ -1,12 +1,12 @@
 import api from './api';
 
 export const getConversations = async () => {
-    const res = await api.get('/api/chat/conversations');
+    const res = await api.get('/api/chat/conversations', { withCredentials: true });
     return res.data;
 };
 
 export const saveConversation = async (other_user_id, last_message) => {
-    return api.post('/api/chat/conversations', { other_user_id, last_message });
+    return api.post('/api/chat/conversations', { other_user_id, last_message }, { withCredentials: true });
 };
 
 export const saveConversationsBatch = async (conversations) => {

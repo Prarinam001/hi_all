@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const fetchUser = async () => {
             try {
-                const res = await api.get('/api/account/profile');
+                const res = await api.get('/api/account/profile', { withCredentials: true });
                 setUser(res.data);
             } catch (error) {
                 console.error("Auth check failed", error);
@@ -25,11 +25,11 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (email, password) => {
-        const res = await api.post('/api/account/login', { email, password });
+        const res = await api.post('/api/account/login', { email, password }, { withCredentials: true });
         
         // Fetch user immediately to ensure it's available before navigation
         try {
-            const userRes = await api.get('/api/account/profile');
+            const userRes = await api.get('/api/account/profile', { withCredentials: true });
             setUser(userRes.data);
         } catch (error) {
             console.error("Failed to fetch user after login", error);
@@ -38,13 +38,13 @@ export const AuthProvider = ({ children }) => {
     };
 
     const signup = async (email, password, fullName, phoneNumber) => {
-        await api.post('/api/account/register', { email, password, full_name: fullName, phone_number: phoneNumber });
+        await api.post('/api/account/register', { email, password, full_name: fullName, phone_number: phoneNumber }, { withCredentials: true });
         await login(email, password);
     };
 
     const logout = async () => {
         try {
-            await api.post('/api/account/logout');
+            await api.post('/api/account/logout', {}, { withCredentials: true });
         } catch (error) {
             console.error("Logout failed", error);
         } finally {

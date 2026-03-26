@@ -18,7 +18,8 @@ export default function useWebSocket(userId, onMessage, enabled = true) {
         let mounted = true;
 
         const connect = () => {
-            const socket = new WebSocket(`ws://localhost:8000/api/chat/ws/${userId}`);
+            const wsBaseUrl = import.meta.env.VITE_BACKEND_BASE_URL.replace(/^http/, 'ws');
+            const socket = new WebSocket(`${wsBaseUrl}/api/chat/ws/${userId}`);
             wsRef.current = socket;
 
             socket.onopen = () => {

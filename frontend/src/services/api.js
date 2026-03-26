@@ -32,7 +32,7 @@ api.interceptors.response.use(
             originalRequest._retry = true;
             try {
                 // Attempt to refresh token
-                await api.post('/api/account/refresh');
+                await api.post('/api/account/refresh', {}, { withCredentials: true });
 
                 // If refresh is successful, retry the original request
                 return api(originalRequest);
