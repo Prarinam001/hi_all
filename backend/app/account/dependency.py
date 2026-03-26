@@ -8,8 +8,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 async def get_current_user(session: SessionDep, request: Request):
+    logger.info(f"Incoming cookies: {request.cookies}")
     token = request.cookies.get("access_token")
-    logger.info(f"token------------------------: {token}")
+    logger.info(f"access_token from cookies: {token}")
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
