@@ -54,8 +54,8 @@ async def create_tokens(session: AsyncSession, user: User):
     session.add(refresh_token)
     await session.commit()
     return {
-        "access_token": access_token,
-        "refresh_token": refresh_token_str,
+        "ha_access_token": access_token,
+        "ha_refresh_token": refresh_token_str,
         "token_type": "bearer",
     }
 

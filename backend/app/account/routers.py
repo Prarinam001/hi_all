@@ -49,7 +49,7 @@ async def get_user_details(user: User = Depends(get_current_user)):
 
 @router.post("/refresh")
 async def get_refresh_token(session: SessionDep, request: Request, data: dict):
-    token = data.get("refresh_token")
+    token = data.get("ha_refresh_token")
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Refresh Token"

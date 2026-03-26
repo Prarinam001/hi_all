@@ -37,13 +37,13 @@ api.interceptors.response.use(
         ) {
             originalRequest._retry = true;
             try {
-                const refresh_token = localStorage.getItem('ha_refresh_token');
-                const res = await api.post('/api/account/refresh', { refresh_token });
+                const ha_refresh_token = localStorage.getItem('ha_refresh_token');
+                const res = await api.post('/api/account/refresh', { ha_refresh_token });
                 const { tokens } = res.data;
-                
-                localStorage.setItem('ha_access_token', tokens.access_token);
+
+                localStorage.setItem('ha_access_token', tokens.ha_access_token);
                 // localStorage.setItem('ha_refresh_token', tokens.refresh_token); // Update if server rotates it
-                
+
                 return api(originalRequest);
             } catch (refreshError) {
                 // If refresh fails, logout

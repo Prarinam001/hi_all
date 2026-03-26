@@ -33,8 +33,8 @@ export const AuthProvider = ({ children }) => {
         const res = await api.post('/api/account/login', { email, password });
         const { tokens } = res.data;
         
-        localStorage.setItem('ha_access_token', tokens.access_token);
-        localStorage.setItem('ha_refresh_token', tokens.refresh_token);
+        localStorage.setItem('ha_access_token', tokens.ha_access_token);
+        localStorage.setItem('ha_refresh_token', tokens.ha_refresh_token);
         
         // Fetch user immediately to ensure it's available before navigation
         try {
@@ -53,8 +53,8 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         try {
-            const refresh_token = localStorage.getItem('ha_refresh_token');
-            await api.post('/api/account/logout', { refresh_token });
+            const ha_refresh_token = localStorage.getItem('ha_refresh_token');
+            await api.post('/api/account/logout', { ha_refresh_token });
         } catch (error) {
             console.error("Logout failed", error);
         } finally {
