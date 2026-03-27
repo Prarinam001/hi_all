@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect, stat
 from typing import List
 from app.chat.models import Conversation, Group, GroupMember, Message
 from app.account.models import User
-from app.chat.schemas import GroupCreate, GroupResponse
+from app.chat.schemas import GroupCreate, GroupResponse, AddMemberRequest
 from app.chat.utils import ConnectionManager
 import json
 import datetime
@@ -56,7 +56,7 @@ async def get_group_members(session: AsyncSession, group_id: int):
     result = await session.scalars(stmt)
     return result.all()
 
-async def add_member_to_group(session: AsyncSession, group_id: int, email: str, current_user: User):
+async def add_member_to_group(session: AsyncSession, group_id: int, data: AddMemberRequest, current_user: User):
     # Verify group exists and current user is creator
     stmt = select(Group).where(Group.id == group_id)
     result = await session.scalars(stmt)
@@ -67,10 +67,16 @@ async def add_member_to_group(session: AsyncSession, group_id: int, email: str, 
     
     if group.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Only the creator can add members")
-    if group.created_by == current_user.id:
-        raise HTTPException(status_code=409, detail="You are already a group creator")
     # Find user to add
-    user_stmt = select(User).where(User.email == email)
+    if data.user_id:
+        user_stmt = select(User).where(User.id == data.user_id)
+    elif data.email:
+        user_stmt = select(User).where(User.email == data.email)
+    elif data.phone_number:
+        user_stmt = select(User).where(User.phone_number == data.phone_number)
+    else:
+        raise HTTPException(status_code=400, detail="User ID, Email, or Phone Number required")
+
     u_res = await session.scalars(user_stmt)
     user_to_add = u_res.first()
 

@@ -40,7 +40,22 @@ const styles = {
     list: {
         flex: 1,
         overflowY: 'auto',
-        px: 1
+        px: 1,
+        '&::-webkit-scrollbar': {
+            width: '6px'
+        },
+        '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent'
+        },
+        '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#90ee90', // Light green
+            borderRadius: '10px',
+            border: '2px solid transparent',
+            backgroundClip: 'content-box'
+        },
+        '&::-webkit-scrollbar-thumb:hover': {
+            backgroundColor: '#7cfc00' // slightly darker on hover
+        }
     },
     listItemIcon: {
         minWidth: 32

@@ -140,10 +140,10 @@ export default function Chat() {
         try {
             await api.delete(`/api/chat/conversations/${otherUserId}`);
             setConversations(prev => prev.filter(c => c.other_user_id !== otherUserId));
-            
+
             // Delete localized db logs
             await deleteLocalConversationData(otherUserId);
-            
+
             if (selectedUser && selectedUser.id === otherUserId && !selectedUser.isGroup) {
                 setSelectedUser(null);
             }
@@ -202,8 +202,8 @@ export default function Chat() {
                             copiedEmail={copiedEmail}
                             onCopy={copyEmailToClipboard}
                             onSidebarToggle={() => setMobileOpen(true)}
-                            onAddMember={async (groupId, email) => {
-                                const updated = await addMember(groupId, email);
+                            onAddMember={async (groupId, info) => {
+                                const updated = await addMember(groupId, info);
                                 setSelectedUser({ ...updated, isGroup: true });
                             }}
                             onRemoveMember={async (groupId, userId) => {

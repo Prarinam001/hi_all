@@ -320,9 +320,9 @@ export default function useChatManager(user, api, setConversations, selectedUser
         await saveLocalGroup(newGroup).catch(err => console.error("Failed to save new group locally", err));
     }, []);
 
-    const addMember = useCallback(async (groupId, email) => {
+    const addMember = useCallback(async (groupId, data) => {
         try {
-            const updatedGroup = await addMemberToGroup(groupId, email);
+            const updatedGroup = await addMemberToGroup(groupId, data);
             setGroups(prev => prev.map(g => g.id === groupId ? updatedGroup : g));
             await saveLocalGroup(updatedGroup);
             return updatedGroup;

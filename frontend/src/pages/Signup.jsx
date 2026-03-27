@@ -87,8 +87,9 @@ export default function Signup() {
                     />
                     <TextField
                         margin="normal"
+                        required
                         fullWidth
-                        label="Phone Number (Optional)"
+                        label="Phone Number"
                         type="tel"
                         placeholder="+1 (555) 123-4567"
                         value={phoneNumber}

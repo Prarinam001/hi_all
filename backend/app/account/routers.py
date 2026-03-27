@@ -16,7 +16,9 @@ from app.account.services import (
     password_reset_email_send,
     verify_email_token,
     verify_password_reset_token,
-    get_user_by_email
+    verify_password_reset_token,
+    get_user_by_email,
+    get_user_by_phone
 )
 from app.db.config import SessionDep
 from app.account.utils import create_tokens, revoke_refresh_token, verify_refresh_token
@@ -109,6 +111,15 @@ async def logout(
     return {"detail": "Logged out"}
 
 @router.get("/search")
-async def search_user(session: SessionDep, email: str):
-    user = await get_user_by_email(session, email)
-    return user
+async def search_user(session: SessionDep, email: str = None, phone_number: str = None, skip: int = 0, limit: int = 20):
+    if email:
+        users = await get_user_by_email(session, email, skip=skip, limit=limit)
+    elif phone_number:
+        users = await get_user_by_phone(session, phone_number, skip=skip, limit=limit)
+    else:
+        raise HTTPException(status_code=400, detail="Search query required")
+    
+    if not users:
+        raise HTTPException(status_code=404, detail="User Not Found")
+        
+    return users

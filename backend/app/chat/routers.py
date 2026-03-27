@@ -49,7 +49,7 @@ async def add_group_member(
     Adds a new user to an existing chat group.
     Used by group members to invite others into an ongoing group conversation.
     """
-    return await add_member_to_group(session, group_id, data.email, current_user)
+    return await add_member_to_group(session, group_id, data, current_user)
 
 @router.delete("/groups/{group_id}")
 async def leave_my_group(

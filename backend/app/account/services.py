@@ -23,11 +23,11 @@ from app.account.dependency import get_current_user
 
 async def create_user(session: AsyncSession, user: UserCreate):
     # print("user: ", user)
-    stmt = select(User).where(User.email == user.email)
+    stmt = select(User).where(User.email == user.email, User.phone_number == user.phone_number)
     result = await session.scalars(stmt)
     if result.first():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email Already Register"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email and Phone Number combination already registered"
         )
     new_user = User(email=user.email, name=user.full_name, phone_number=user.phone_number, hashed_password=hash_password(user.password))
     session.add(new_user)
@@ -124,14 +124,18 @@ async def verify_password_reset_token(
     await session.commit()
     return {"message": "Password Reset Successfully"}
 
-async def get_user_by_email(session: AsyncSession, email: str):
+async def get_user_by_email(session: AsyncSession, email: str, skip: int = 0, limit: int = 20):
     stmt = select(User).options(load_only(
         User.id, User.name, User.email, User.phone_number,
-    )).where(User.email == email)
+    )).where(User.email == email).offset(skip).limit(limit)
     result = await session.scalars(stmt)
-    user = result.first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found"
-        )
-    return user
+    users = result.all()
+    return users
+
+async def get_user_by_phone(session: AsyncSession, phone_number: str, skip: int = 0, limit: int = 20):
+    stmt = select(User).options(load_only(
+        User.id, User.name, User.email, User.phone_number,
+    )).where(User.phone_number == phone_number).offset(skip).limit(limit)
+    result = await session.scalars(stmt)
+    users = result.all()
+    return users

@@ -3,6 +3,7 @@ import { Box, Avatar, Typography, IconButton, Menu, MenuItem, Dialog, DialogTitl
 import { Video, Phone, MoreVertical, Menu as MenuIcon, UserPlus, LogOut, Users } from 'lucide-react';
 import EmailTooltip from './EmailTooltip';
 import GroupMembersModal from './GroupMembersModal';
+import UserSearch from './UserSearch';
 
 const styles = {
     header: {
@@ -48,23 +49,23 @@ export default function ChatHeader({
     const [anchorEl, setAnchorEl] = useState(null);
     const [addMemberOpen, setAddMemberOpen] = useState(false);
     const [membersOpen, setMembersOpen] = useState(false);
-    const [email, setEmail] = useState('');
 
     const isCreator = selectedUser?.isGroup && user?.id === selectedUser?.created_by;
 
     const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
     const handleMenuClose = () => setAnchorEl(null);
 
-    const handleAddMember = async () => {
-        if (!email) return;
+    const handleAddMember = async (targetUser) => {
+        if (!targetUser) return;
         try {
-            await onAddMember(selectedUser.id, email);
+            await onAddMember(selectedUser.id, { user_id: targetUser.id });
             setAddMemberOpen(false);
-            setEmail('');
             handleMenuClose();
-            alert("Member added successfully");
+            alert(`Added ${targetUser.name || targetUser.full_name} to the group`);
         } catch (err) {
-            alert(err.response?.data?.detail || "Failed to add member");
+            const errorMsg = err.response?.data?.detail;
+            const finalMsg = typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : (errorMsg || "Failed to add member");
+            alert(finalMsg);
         }
     };
 
@@ -120,32 +121,24 @@ export default function ChatHeader({
                 </Menu>
             </Box>
 
-            <Dialog open={addMemberOpen} onClose={() => setAddMemberOpen(false)}>
+            <Dialog open={addMemberOpen} onClose={() => setAddMemberOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Add Member to Group</DialogTitle>
-                <DialogContent>
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        label="User Email"
-                        type="email"
-                        fullWidth
-                        variant="outlined"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                    />
+                <DialogContent dividers sx={{ p: 0 }}>
+                    <Box sx={{ minHeight: '350px' }}>
+                        <UserSearch onUserSelect={handleAddMember} />
+                    </Box>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setAddMemberOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAddMember} variant="contained">Add</Button>
                 </DialogActions>
             </Dialog>
 
-            <GroupMembersModal 
-                open={membersOpen} 
-                onClose={() => setMembersOpen(false)} 
-                group={selectedUser} 
-                user={user} 
-                onRemoveMember={handleRemoveMember} 
+            <GroupMembersModal
+                open={membersOpen}
+                onClose={() => setMembersOpen(false)}
+                group={selectedUser}
+                user={user}
+                onRemoveMember={handleRemoveMember}
             />
         </Box>
     );

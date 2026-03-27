@@ -1,11 +1,12 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean, DateTime, ForeignKey
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, UniqueConstraint
 from datetime import date, datetime, timezone
 from app.db.base import Base
 
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("email", "phone_number", name="uq_email_phone"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -14,7 +15,7 @@ class User(Base):
     def full_name(self) -> str:
         return self.name
 
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     phone_number: Mapped[str] = mapped_column(String(15), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
