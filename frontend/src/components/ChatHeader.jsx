@@ -44,8 +44,30 @@ export default function ChatHeader({
     onSidebarToggle,
     onAddMember,
     onRemoveMember,
-    onLeaveGroup
+    onLeaveGroup,
+    userStatus
 }) {
+    const formatLastSeen = (dateString) => {
+        if (!dateString) return 'recently';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return 'recently';
+            
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) {
+                return `today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            } else if (diffDays === 1) {
+                return `yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            } else {
+                return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+        } catch (e) {
+            return 'recently';
+        }
+    };
     const [anchorEl, setAnchorEl] = useState(null);
     const [addMemberOpen, setAddMemberOpen] = useState(false);
     const [membersOpen, setMembersOpen] = useState(false);
@@ -87,7 +109,23 @@ export default function ChatHeader({
                 <EmailTooltip email={selectedUser?.email} copiedEmail={copiedEmail} onCopy={onCopy}>
                     <Avatar sx={styles.avatar}>{(selectedUser?.name || selectedUser?.full_name)?.[0]?.toUpperCase()}</Avatar>
                 </EmailTooltip>
-                <Typography variant="subtitle1" fontWeight="bold">{selectedUser?.name || selectedUser?.full_name}</Typography>
+                <Box>
+                    <Typography variant="subtitle1" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
+                        {selectedUser?.name || selectedUser?.full_name}
+                    </Typography>
+                    {!selectedUser?.isGroup && (
+                        <Typography 
+                            variant="caption" 
+                            sx={{ 
+                                color: userStatus?.is_online ? 'success.main' : 'text.secondary',
+                                fontWeight: userStatus?.is_online ? 'bold' : 'normal',
+                                display: 'block'
+                            }}
+                        >
+                            {userStatus?.is_online ? 'online' : `last seen ${formatLastSeen(userStatus?.last_seen)}`}
+                        </Typography>
+                    )}
+                </Box>
             </Box>
             <Box sx={styles.actionSection}>
                 {!selectedUser?.isGroup && (

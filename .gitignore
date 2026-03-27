@@ -11,6 +11,8 @@
 /backend/app/account/__pycache__/
 /backend/app/chat/__pycache__/
 /backend/alembic/__pycache__/
+/backend/app/tracking/__pycache__/
+/backend/tmp/
 
 
 

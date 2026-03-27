@@ -63,7 +63,9 @@ export default function Chat() {
         addMember,
         removeMember,
         groupLeave,
-        unreads
+        unreads,
+        userStatuses,
+        setUserStatuses
     } = useChatManager(user, api, setConversations, selectedUser);
 
     useEffect(() => {
@@ -82,12 +84,29 @@ export default function Chat() {
         }
     }, [selectedUser, loadLocalMessagesForUser]);
 
+    useEffect(() => {
+        if (conversations && conversations.length > 0) {
+            const initialStatuses = {};
+            conversations.forEach(c => {
+                if (c.other_user_id) {
+                    initialStatuses[c.other_user_id] = {
+                        is_online: c.is_online || false,
+                        last_seen: c.last_seen
+                    };
+                }
+            });
+            setUserStatuses(prev => ({ ...initialStatuses, ...prev }));
+        }
+    }, [conversations, setUserStatuses]);
+
     const sendRef = useRef(null);
     const { send } = useWebSocket(user?.id, (data) => {
         if (!data) return;
-        if (data.type === 'chat') {
-            handleChatMessage(data);
-        } else if (data.type === 'offer' || data.type === 'voice-offer') {
+        // Relay all messages to chat manager (handles chat, user_status, pong, etc.)
+        handleChatMessage(data);
+
+        // Still handle signaling and specific UI logic here if needed
+        if (data.type === 'offer' || data.type === 'voice-offer') {
             callManager.handleOffer(data);
         } else if (data.type === 'answer' || data.type === 'voice-answer') {
             callManager.handleAnswer(data);
@@ -165,6 +184,7 @@ export default function Chat() {
                     copiedEmail={copiedEmail}
                     onCopy={copyEmailToClipboard}
                     unreads={unreads}
+                    userStatuses={userStatuses}
                     onGroupCreated={(g) => { addGroup(g); setSelectedUser({ ...g, isGroup: true }); }}
                     onDeleteConversation={handleDeleteConversation}
                 />
@@ -185,6 +205,7 @@ export default function Chat() {
                     copiedEmail={copiedEmail}
                     onCopy={copyEmailToClipboard}
                     unreads={unreads}
+                    userStatuses={userStatuses}
                     onClose={() => setMobileOpen(false)}
                     onGroupCreated={(g) => { addGroup(g); setSelectedUser({ ...g, isGroup: true }); }}
                     onDeleteConversation={handleDeleteConversation}
@@ -197,6 +218,7 @@ export default function Chat() {
                         <ChatHeader
                             user={user}
                             selectedUser={selectedUser}
+                            userStatus={userStatuses[selectedUser.id]}
                             startCall={callManager.startCall}
                             startVoiceCall={() => callManager.startCall('audio')}
                             copiedEmail={copiedEmail}

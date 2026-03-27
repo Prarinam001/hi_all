@@ -2,6 +2,7 @@ from sqlalchemy import String, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 import datetime
+from datetime import timedelta
 from typing import Optional, List
 
 class Conversation(Base):
@@ -11,8 +12,8 @@ class Conversation(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     other_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     last_message: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    last_message_time: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+    last_message_time: Mapped[datetime.datetime] = mapped_column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone(timedelta(hours=5, minutes=30))))
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone(timedelta(hours=5, minutes=30))))
 
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
     other_user: Mapped["User"] = relationship("User", foreign_keys=[other_user_id])
@@ -23,7 +24,7 @@ class Message(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     content: Mapped[str] = mapped_column(String(255))
-    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone(timedelta(hours=5, minutes=30))))
     sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("groups.id"), nullable=True)
     recipient_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
@@ -44,7 +45,7 @@ class Group(Base):
     # last_message: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     # last_message_time: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, 
-    default=datetime.datetime.utcnow, nullable=True)
+    default=lambda: datetime.datetime.now(datetime.timezone(timedelta(hours=5, minutes=30))), nullable=True)
 
     members: Mapped[List["GroupMember"]] = relationship("GroupMember", back_populates="group", cascade="all, delete-orphan")
     messages: Mapped[List["Message"]] = relationship("Message", back_populates="group", cascade="all, delete-orphan")

@@ -8,6 +8,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
     const [groups, setGroups] = useState([]);
     const [input, setInput] = useState('');
     const [replyTo, setReplyTo] = useState(null);
+    const [userStatuses, setUserStatuses] = useState({});
     const [unreads, setUnreads] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem(`unreads_${user?.id}`) || '{}');
@@ -108,6 +109,19 @@ export default function useChatManager(user, api, setConversations, selectedUser
             return;
         }
 
+        if (data.type === 'user_status') {
+            setUserStatuses(prev => ({
+                ...prev,
+                [data.user_id]: {
+                    is_online: data.is_online,
+                    last_seen: data.last_seen
+                }
+            }));
+            return;
+        }
+
+        if (data.type === 'pong') return; // Heartbeat response
+
         const otherId = data.sender_id === user.id ? data.recipient_id : data.sender_id;
         const newMsg = {
             ...data,
@@ -184,6 +198,14 @@ export default function useChatManager(user, api, setConversations, selectedUser
                         return [newConv, ...prev];
                     }
                 });
+
+                setUserStatuses(prev => ({
+                    ...prev,
+                    [data.sender_id]: {
+                        is_online: data.is_online !== undefined ? data.is_online : true,
+                        last_seen: data.last_seen
+                    }
+                }));
             }
 
             // Update local DB outside of the state setter
@@ -371,6 +393,8 @@ export default function useChatManager(user, api, setConversations, selectedUser
         handleChatMessage,
         sendMessage,
         loadLocalMessagesForUser,
-        unreads
+        unreads,
+        userStatuses,
+        setUserStatuses
     };
 }

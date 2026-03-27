@@ -26,7 +26,14 @@ export default function useWebSocket(userId, onMessage, enabled = true) {
             socket.onopen = () => {
                 reconnectRef.current = 0;
                 setReadyState(socket.readyState);
-                //console.log('WS connected', userId);
+                // Heartbeat
+                const heartbeatInterval = setInterval(() => {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ type: 'ping' }));
+                    } else {
+                        clearInterval(heartbeatInterval);
+                    }
+                }, 30000);
             };
 
             socket.onmessage = (event) => {

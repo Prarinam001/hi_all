@@ -9,10 +9,12 @@ from app.chat.schemas import GroupCreate, GroupResponse, AddMemberRequest
 from app.chat.utils import ConnectionManager
 import json
 import datetime
+from app.chat.utils import manager, IST
 from sqlalchemy import or_, and_
+from app.tracking import services as tracking
 
 
-manager = ConnectionManager()
+
 
 async def create_group(session: AsyncSession, group_data: GroupCreate, current_user: User):
     # Create group
@@ -101,7 +103,7 @@ async def add_member_to_group(session: AsyncSession, group_id: int, data: AddMem
         content=sys_content,
         sender_id=current_user.id,
         group_id=group_id,
-        timestamp=datetime.datetime.utcnow()
+        timestamp=datetime.datetime.now(IST)
     )
     session.add(sys_msg)
     await session.commit()
@@ -153,7 +155,7 @@ async def leave_group(session: AsyncSession, group_id: int, current_user: User):
         content=sys_content,
         sender_id=current_user.id,
         group_id=group_id,
-        timestamp=datetime.datetime.utcnow()
+        timestamp=datetime.datetime.now(IST)
     )
     session.add(sys_msg)
     await session.commit()
@@ -214,7 +216,7 @@ async def remove_member_from_group(session: AsyncSession, group_id: int, user_id
         content=sys_content,
         sender_id=current_user.id,
         group_id=group_id,
-        timestamp=datetime.datetime.utcnow()
+        timestamp=datetime.datetime.now(IST)
     )
     session.add(sys_msg)
     await session.commit()
@@ -259,11 +261,23 @@ async def get_conversations(session: AsyncSession, current_user: User):
     conversations = result.all()
     
     # For each conversation, we need the "other" user details
-    # We could do this more efficiently with a join in the stmt above
-    # Let's rewrite the stmt to be more efficient and return what frontend wants
+    # We use a dict to deduplicate by other_user_id (keeping the first occurrence, which is the most recent due to order_by)
+    unique_conversations = []
+    seen_other_user_ids = set()
+    other_user_ids = []
     
-    results = []
     for conv in conversations:
+        other_user_id = conv.other_user_id if conv.user_id == current_user.id else conv.user_id
+        if other_user_id not in seen_other_user_ids:
+            seen_other_user_ids.add(other_user_id)
+            unique_conversations.append(conv)
+            other_user_ids.append(other_user_id)
+    
+    # Batch lookup online status from Valkey
+    online_statuses = await tracking.get_online_status(other_user_ids)
+
+    results = []
+    for conv in unique_conversations:
         other_user_id = conv.other_user_id if conv.user_id == current_user.id else conv.user_id
         
         # Fetch other user details
@@ -279,7 +293,9 @@ async def get_conversations(session: AsyncSession, current_user: User):
             "other_user_phone_number": other_user.phone_number if other_user else "",
             "last_message": conv.last_message,
             "last_message_time": conv.last_message_time,
-            "created_at": conv.created_at
+            "created_at": conv.created_at,
+            "is_online": online_statuses.get(other_user_id, False),
+            "last_seen": other_user.last_seen if other_user else None
         })
         
     return results
@@ -296,7 +312,7 @@ async def update_conversation(session: AsyncSession, sender_id: int, recipient_i
     result = await session.scalars(stmt)
     conv = result.first()
     
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(IST)
     if conv:
         conv.last_message = last_message
         conv.last_message_time = now
@@ -330,7 +346,7 @@ async def update_group_metadata(session: AsyncSession, group_id: int, last_messa
     group = result.first()
     if group:
         group.last_message = last_message
-        group.last_message_time = datetime.datetime.utcnow()
+        group.last_message_time = datetime.datetime.now(IST)
 
 
 async def get_messages(session: AsyncSession, current_user_id: int, other_id: int = None, group_id: int = None):
@@ -370,100 +386,6 @@ async def acknowledge_messages(session: AsyncSession, message_ids: List[int], cu
         await session.delete(msg)
     await session.commit()
     return {"status": "success"}
-
-async def build_connection_for_conversation(websocket: WebSocket, user_id: int, session: AsyncSession):
-    await manager.connect(websocket, user_id)
-    try:
-        while True:
-            try:
-                data = await websocket.receive_text()
-            except WebSocketDisconnect:
-                break
-            except Exception:
-                break
-
-            try:
-                msg_data = json.loads(data)
-                target_id = msg_data.get("target_id")
-                group_id = msg_data.get("group_id")
-                content = msg_data.get("content")
-                reply_to_id = msg_data.get("reply_to_id")
-                reply_to_content = msg_data.get("reply_to_content")
-                reply_to_sender = msg_data.get("reply_to_sender")
-                
-                msg_type = msg_data.get("type", "chat")
-                signaling_types = ["offer", "answer", "candidate", "call-reject", "call-end", "voice-offer", "voice-answer"]
-                # print("message type:=====================> ", msg_type)
-                if msg_type in signaling_types:
-                    # Forward signaling message directly
-                    if group_id:
-                        gid = int(group_id)
-                        members = await get_group_members(session, gid)
-                        for member_id in members:
-                            if member_id != user_id:
-                                await manager.send_personal_message(json.dumps(msg_data), member_id)
-                    elif target_id:
-                        recipient_id = int(target_id)
-                        await manager.send_personal_message(json.dumps(msg_data), recipient_id)
-                    continue
-
-                # Save message and update conversation
-                if group_id:
-                    gid = int(group_id)
-                    await update_group_metadata(session, gid, content)
-                    
-                    # Get members
-                    members = await get_group_members(session, gid)
-                    base_timestamp = datetime.datetime.utcnow()
-                    
-                    inserted_msgs = []
-                    for member_id in members:
-                        if member_id == user_id:
-                            continue # Sender already has message locally
-                            
-                        new_msg = Message(
-                            content=content,
-                            sender_id=user_id,
-                            recipient_id=member_id,
-                            group_id=gid,
-                            reply_to_id=reply_to_id,
-                            reply_to_content=reply_to_content,
-                            reply_to_sender=reply_to_sender,
-                            timestamp=base_timestamp
-                        )
-                        session.add(new_msg)
-                        inserted_msgs.append(new_msg)
-                        
-                    await session.flush()
-                    
-                    for msg in inserted_msgs:
-                        await session.refresh(msg)
-                        msg_data_copy = msg_data.copy()
-                        msg_data_copy["timestamp"] = msg.timestamp.isoformat()
-                        msg_data_copy["id"] = msg.id
-                        
-                        await manager.send_personal_message(json.dumps(msg_data_copy), msg.recipient_id)
-                        
-                    await session.commit()
-                elif target_id:
-                    recipient_id = int(target_id)
-                    msg = await save_message(session, user_id, content, recipient_id=recipient_id, reply_to_id=reply_to_id, reply_to_content=reply_to_content, reply_to_sender=reply_to_sender)
-                    await update_conversation(session, user_id, recipient_id, content)
-                    await session.commit()
-
-                    msg_data["timestamp"] = msg.timestamp.isoformat() if msg.timestamp else datetime.datetime.utcnow().isoformat()
-                    msg_data["id"] = msg.id
-
-                    await manager.send_personal_message(json.dumps(msg_data), recipient_id)
-            except Exception as e:
-                try:
-                    await session.rollback() # Ensure rollback on error
-                except Exception:
-                    pass # Connection might be dead anyway
-                # print(f"Error handling message: {e}")
-
-    finally:
-        manager.disconnect(user_id)
 
 async def delete_conversation(session: AsyncSession, other_user_id: int, current_user_id: int):
     # Fetch the conversation

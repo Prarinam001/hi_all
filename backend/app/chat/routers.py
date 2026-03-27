@@ -1,6 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from typing import List
-from app.chat.services import build_connection_for_conversation, create_group, get_user_groups, add_member_to_group, leave_group, remove_member_from_group
+from app.chat.services import create_group, get_user_groups, add_member_to_group, leave_group, remove_member_from_group
+from app.chat.connectionService import build_connection_for_conversation
 from app.chat.schemas import GroupCreate, GroupResponse, AddMemberRequest
 from app.db.config import SessionDep
 from app.account.models import User
