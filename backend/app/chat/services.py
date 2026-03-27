@@ -67,12 +67,13 @@ async def add_member_to_group(session: AsyncSession, group_id: int, email: str, 
     
     if group.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Only the creator can add members")
-        
+    if group.created_by == current_user.id:
+        raise HTTPException(status_code=409, detail="You are already a group creator")
     # Find user to add
     user_stmt = select(User).where(User.email == email)
     u_res = await session.scalars(user_stmt)
     user_to_add = u_res.first()
-    
+
     if not user_to_add:
         raise HTTPException(status_code=404, detail="User not found")
         
@@ -88,7 +89,7 @@ async def add_member_to_group(session: AsyncSession, group_id: int, email: str, 
     session.add(new_member)
     await session.commit()
     
-    # Broadcast system message
+    # Broadcast system message for adding and deletion
     sys_content = f"__SYSTEM__:{current_user.name} added {user_to_add.name}"
     sys_msg = Message(
         content=sys_content,

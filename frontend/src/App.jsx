@@ -38,12 +38,31 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const AuthRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <CircularProgress />
+    </Box>
+  );
+  if (user) return <Navigate to="/chat" replace />;
+  return children;
+};
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
+      <Route path="/login" element={
+        <AuthRoute>
+          <Login />
+        </AuthRoute>
+      } />
+      <Route path="/signup" element={
+        <AuthRoute>
+          <Signup />
+        </AuthRoute>
+      } />
       <Route path="/chat" element={
         <ProtectedRoute>
           <Chat />

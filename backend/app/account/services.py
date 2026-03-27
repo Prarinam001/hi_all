@@ -126,8 +126,8 @@ async def verify_password_reset_token(
 
 async def get_user_by_email(session: AsyncSession, email: str):
     stmt = select(User).options(load_only(
-    User.id, User.name, User.email, User.phone_number,
-)).where(User.email == email)
+        User.id, User.name, User.email, User.phone_number,
+    )).where(User.email == email)
     result = await session.scalars(stmt)
     user = result.first()
     if not user:
