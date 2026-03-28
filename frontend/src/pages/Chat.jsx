@@ -260,24 +260,24 @@ export default function Chat() {
                             handleEmojiButtonClick={handleEmojiButtonClick}
                             handleEmojiClose={handleEmojiClose}
                         />
-
-                        <CallOverlays
-                            user={user}
-                            isInCall={callManager.isInCall}
-                            callType={callManager.callType}
-                            localVideoRef={callManager.localVideo}
-                            remoteVideoRef={callManager.remoteVideo}
-                            remoteAudioRef={callManager.remoteAudio}
-                            endCall={callManager.endCall}
-                            incomingCall={callManager.incomingCall}
-                            acceptCall={callManager.acceptCall}
-                            rejectCall={callManager.rejectCall}
-                            selectedUser={selectedUser}
-                        />
                     </>
                 ) : (
                     <EmptyChatState onSidebarToggle={() => setMobileOpen(true)} />
                 )}
+
+                <CallOverlays
+                    user={user}
+                    isInCall={callManager.isInCall}
+                    callType={callManager.callType}
+                    localVideoRef={callManager.localVideo}
+                    remoteVideoRef={callManager.remoteVideo}
+                    remoteAudioRef={callManager.remoteAudio}
+                    endCall={callManager.endCall}
+                    incomingCall={callManager.incomingCall}
+                    acceptCall={callManager.acceptCall}
+                    rejectCall={callManager.rejectCall}
+                    selectedUser={selectedUser}
+                />
             </Box>
         </Box>
     );

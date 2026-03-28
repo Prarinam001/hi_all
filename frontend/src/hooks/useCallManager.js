@@ -248,6 +248,9 @@ export default function useCallManager(user, selectedUser, sendRef, setSelectedU
         // IDEMPOTENCY: If no call is even active, ignore this signal
         if (!isInCall && !incomingCall) return;
 
+        // Capture the remote user's name BEFORE clearing state
+        const other_name = incomingCall?.sender_name || selectedUser?.full_name || 'the other person';
+
         // Reset state
         setIsInCall(false);
         setIncomingCall(null);
@@ -266,9 +269,9 @@ export default function useCallManager(user, selectedUser, sendRef, setSelectedU
 
         // Notify user (slightly delayed so UI re-renders first)
         setTimeout(() => {
-            alert(`Call ended by ${user.full_name}`);
+            alert(`Call ended by ${other_name}`);
         }, 100);
-    }, [isInCall, incomingCall, peer]);
+    }, [isInCall, incomingCall, selectedUser, peer]);
 
     return {
         callType,
