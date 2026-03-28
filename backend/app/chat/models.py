@@ -59,3 +59,18 @@ class GroupMember(Base):
     
     user: Mapped["User"] = relationship("User", back_populates="group_memberships")
     group: Mapped["Group"] = relationship("Group", back_populates="members")
+
+class VideoCall(Base):
+    __tablename__ = "video_calls"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    caller_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    receiver_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    call_type: Mapped[str] = mapped_column(String(50)) # 'audio' or 'video'
+    status: Mapped[str] = mapped_column(String(50)) # 'started', 'completed', 'missed', 'rejected'
+    start_time: Mapped[datetime.datetime] = mapped_column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone(timedelta(hours=5, minutes=30))).replace(tzinfo=None))
+    end_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    duration: Mapped[Optional[int]] = mapped_column(nullable=True) # in seconds
+
+    caller: Mapped["User"] = relationship("User", foreign_keys=[caller_id])
+    receiver: Mapped["User"] = relationship("User", foreign_keys=[receiver_id])

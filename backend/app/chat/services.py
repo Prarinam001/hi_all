@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload, aliased
 from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from typing import List
-from app.chat.models import Conversation, Group, GroupMember, Message
+from app.chat.models import Conversation, Group, GroupMember, Message, VideoCall
 from app.account.models import User
 from app.chat.schemas import GroupCreate, GroupResponse, AddMemberRequest
 from app.chat.utils import ConnectionManager
@@ -413,3 +413,46 @@ async def delete_conversation(session: AsyncSession, other_user_id: int, current
         await session.delete(conv)
     await session.commit()
     return {"status": "success"}
+
+async def start_call_log(session: AsyncSession, caller_id: int, receiver_id: int, call_type: str):
+    try:
+        new_call = VideoCall(
+            caller_id=caller_id,
+            receiver_id=receiver_id,
+            call_type=call_type,
+            status='started',
+            start_time=datetime.datetime.now(IST).replace(tzinfo=None)
+        )
+        session.add(new_call)
+        await session.commit()
+        return new_call
+    except Exception as e:
+        await session.rollback()
+        print(f"Failed to start call log: {e}")
+        return None
+
+async def update_call_log(session: AsyncSession, caller_id: int, receiver_id: int, status: str):
+    try:
+        # Find the latest "started" call for this pair
+        stmt = select(VideoCall).where(
+            ((VideoCall.caller_id == caller_id) & (VideoCall.receiver_id == receiver_id)) |
+            ((VideoCall.caller_id == receiver_id) & (VideoCall.receiver_id == caller_id))
+        ).where(VideoCall.status == 'started').order_by(VideoCall.start_time.desc())
+        
+        result = await session.scalars(stmt)
+        call = result.first()
+        
+        if call:
+            call.status = status
+            now = datetime.datetime.now(IST).replace(tzinfo=None)
+            if status in ['completed', 'rejected', 'missed']:
+                call.end_time = now
+                delta = now - call.start_time
+                call.duration = int(delta.total_seconds())
+            await session.commit()
+            return call
+        return None
+    except Exception as e:
+        await session.rollback()
+        print(f"Failed to update call log: {e}")
+        return None

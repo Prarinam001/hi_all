@@ -10,12 +10,13 @@ export default function useCallManager(user, selectedUser, sendRef, setSelectedU
     const localVideo = useRef(null);
     const remoteVideo = useRef(null);
     const remoteAudio = useRef(null);
+    const endCallRef = useRef(null);
 
     const peer = usePeerConnection({
         onIceCandidate: (candidate) => {
             const s = sendRef.current;
-            if (!s || (!selectedUser && !incomingCall)) return;
-            const target_id = selectedUser ? selectedUser.id : incomingCall.sender_id;
+            const target_id = selectedUser?.id || incomingCall?.sender_id;
+            if (!s || !target_id) return;
             s({
                 type: 'candidate',
                 candidate: candidate.candidate,
@@ -44,25 +45,38 @@ export default function useCallManager(user, selectedUser, sendRef, setSelectedU
     });
 
     const endCall = useCallback(() => {
+        // IDEMPOTENCY: If no call is active, don't send anything (stops the loop!)
+        if (!isInCall && !incomingCall) return;
+
+        // 1. Capture the target ID BEFORE clearing state
+        const target_id = selectedUser?.id || incomingCall?.sender_id;
+
+        // 2. Clear state IMMEDIATELY (prevents double-entry)
+        setIsInCall(false);
+        setIncomingCall(null);
+        setCallType(null);
+
+        // 3. Clear timers and hardware
         if (callTimeoutRef.current) {
             clearTimeout(callTimeoutRef.current);
             callTimeoutRef.current = null;
         }
-
-        const s = sendRef.current;
-        if (s && (selectedUser || incomingCall)) {
-            const target_id = selectedUser ? selectedUser.id : incomingCall.sender_id;
-            s({ type: 'call-end', target_id: target_id, sender_id: user.id, call_type: callType });
-        }
-
-        setIsInCall(false);
-        setCallType(null);
         if (localVideo.current && localVideo.current.srcObject) {
             localVideo.current.srcObject.getTracks().forEach(track => track.stop());
+            localVideo.current.srcObject = null;
         }
         peer.close();
-        setIncomingCall(null);
-    }, [user.id, selectedUser, incomingCall, callType, sendRef, peer]);
+
+        // 4. Send the signal ONLY ONCE
+        const s = sendRef.current;
+        if (s && target_id) {
+            s({ type: 'call-end', target_id: target_id, sender_id: user.id, call_type: callType });
+        }
+    }, [user.id, selectedUser, incomingCall, isInCall, callType, sendRef, peer]);
+
+    useEffect(() => {
+        endCallRef.current = endCall;
+    }, [endCall]);
 
     const handleCallReject = useCallback(() => {
         if (callTimeoutRef.current) {
@@ -116,10 +130,13 @@ export default function useCallManager(user, selectedUser, sendRef, setSelectedU
             });
 
             callTimeoutRef.current = setTimeout(() => {
-                endCall();
+                if (endCallRef.current) endCallRef.current();
                 const typeLabel = type === 'video' ? 'Video call' : 'Voice call';
-                alert(`${typeLabel} ended - recipient did not answer`);
-            }, 30000);
+
+                setTimeout(() => {
+                    alert(`${typeLabel} ended - recipient did not answer`);
+                }, 100);
+            }, 20000);
         } catch (error) {
             console.error('Error starting call:', error);
             setIsInCall(false);
@@ -197,6 +214,12 @@ export default function useCallManager(user, selectedUser, sendRef, setSelectedU
     };
 
     const handleAnswer = async (data) => {
+        // Answer received: STOP the timeout timer!
+        if (callTimeoutRef.current) {
+            clearTimeout(callTimeoutRef.current);
+            callTimeoutRef.current = null;
+        }
+
         try {
             if (data.answer && data.answer.sdp) {
                 await peer.setRemoteDescription(data.answer);
@@ -221,6 +244,32 @@ export default function useCallManager(user, selectedUser, sendRef, setSelectedU
         }
     };
 
+    const handleCallEnd = useCallback(() => {
+        // IDEMPOTENCY: If no call is even active, ignore this signal
+        if (!isInCall && !incomingCall) return;
+
+        // Reset state
+        setIsInCall(false);
+        setIncomingCall(null);
+        setCallType(null);
+
+        // Hardware cleanup
+        if (localVideo.current && localVideo.current.srcObject) {
+            localVideo.current.srcObject.getTracks().forEach(track => track.stop());
+            localVideo.current.srcObject = null;
+        }
+        if (remoteVideo.current) remoteVideo.current.srcObject = null;
+        if (remoteAudio.current) remoteAudio.current.srcObject = null;
+
+        // Peer cleanup
+        peer.close();
+
+        // Notify user (slightly delayed so UI re-renders first)
+        setTimeout(() => {
+            alert(`Call ended by ${user.full_name}`);
+        }, 100);
+    }, [isInCall, incomingCall, peer]);
+
     return {
         callType,
         setCallType,
@@ -238,6 +287,7 @@ export default function useCallManager(user, selectedUser, sendRef, setSelectedU
         handleOffer,
         handleAnswer,
         handleCandidate,
-        handleCallReject
+        handleCallReject,
+        handleCallEnd
     };
 }

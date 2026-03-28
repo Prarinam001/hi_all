@@ -113,7 +113,7 @@ export default function Chat() {
         } else if (data.type === 'candidate') {
             callManager.handleCandidate(data);
         } else if (data.type === 'call-end') {
-            callManager.endCall();
+            callManager.handleCallEnd();
         } else if (data.type === 'call-reject') {
             callManager.handleCallReject();
         }

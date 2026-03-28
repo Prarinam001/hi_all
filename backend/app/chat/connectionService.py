@@ -60,7 +60,22 @@ async def build_connection_for_conversation(websocket: WebSocket, user_id: int, 
                 signaling_types = ["offer", "answer", "candidate", "call-reject", "call-end", "voice-offer", "voice-answer"]
                 
                 if msg_type in signaling_types:
-                    # Forward signaling message directly
+                    # Log call start/end/reject only (skip candidate/answer/etc)
+                    if target_id and msg_type in ['offer', 'voice-offer', 'call-end', 'call-reject']:
+                        try:
+                            rid = int(target_id)
+                            if msg_type in ['offer', 'voice-offer']:
+                                ctype = 'video' if msg_type == 'offer' else 'audio'
+                                await chat_services.start_call_log(session, user_id, rid, ctype)
+                            elif msg_type == 'call-end':
+                                await chat_services.update_call_log(session, user_id, rid, 'completed')
+                            elif msg_type == 'call-reject':
+                                await chat_services.update_call_log(session, user_id, rid, 'rejected')
+                        except Exception as e:
+                            # Log error but DON'T stop the signaling message from being forwarded!
+                            print(f"Call logging error: {e}")
+
+                    # Forward signaling message directly (fast path)
                     if group_id:
                         gid = int(group_id)
                         members = await chat_services.get_group_members(session, gid)
