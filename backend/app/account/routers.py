@@ -16,7 +16,9 @@ from app.account.services import (
     password_reset_email_send,
     verify_email_token,
     verify_password_reset_token,
-    get_user_by_email
+    verify_password_reset_token,
+    get_user_by_email,
+    get_user_by_phone
 )
 from app.db.config import SessionDep
 from app.account.utils import create_tokens, revoke_refresh_token, verify_refresh_token
@@ -39,24 +41,7 @@ async def login(session: SessionDep, user_login: UserLogin):
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials"
         )
     tokens = await create_tokens(session, user)
-    response = JSONResponse(content={"message": "Login Successful"})
-    response.set_cookie(
-        "access_token",
-        value=tokens["access_token"],
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 1,
-    )
-    response.set_cookie(
-        "refresh_token",
-        value=tokens["refresh_token"],
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 7,
-    )
-    return response
+    return {"message": "Login Successful", "tokens": tokens}
 
 
 @router.get("/profile", response_model=UserOut)
@@ -65,8 +50,8 @@ async def get_user_details(user: User = Depends(get_current_user)):
 
 
 @router.post("/refresh")
-async def get_refresh_token(session: SessionDep, request: Request):
-    token = request.cookies.get("refresh_token")
+async def get_refresh_token(session: SessionDep, request: Request, data: dict):
+    token = data.get("ha_refresh_token")
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Refresh Token"
@@ -78,24 +63,7 @@ async def get_refresh_token(session: SessionDep, request: Request):
             detail="Invalid or Expires Token",
         )
     tokens = await create_tokens(session, user)
-    response = JSONResponse(content={"message": "Token refreshed successfully"})
-    response.set_cookie(
-        "access_token",
-        value=tokens["access_token"],
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 1,
-    )
-    # response.set_cookie(
-    #     "refresh_token",
-    #     value=tokens["refresh_token"],
-    #     httponly=True,
-    #     secure=True,
-    #     samesite="lax",
-    #     max_age=60 * 60 * 24 * 7,
-    # )
-    return response
+    return {"message": "Token refreshed successfully", "tokens": tokens}
 
 
 @router.post("/send-verification-email")
@@ -135,17 +103,23 @@ async def get_admin(user: User = Depends(require_admin)):
 
 @router.post("/logout")
 async def logout(
-    session: SessionDep, request: Request, user: User = Depends(get_current_user)
+    session: SessionDep, request: Request, data: dict, user: User = Depends(get_current_user)
 ):
-    refress_token = request.cookies.get("refresh_token")
+    refress_token = data.get("ha_refresh_token")
     if refress_token:
         await revoke_refresh_token(session, refress_token)
-    response = JSONResponse(content={"detail": "Logged out"})
-    response.delete_cookie("refresh_token")
-    response.delete_cookie("access_token")
-    return response
+    return {"detail": "Logged out"}
 
 @router.get("/search")
-async def search_user(session: SessionDep, email: str):
-    user = await get_user_by_email(session, email)
-    return user
+async def search_user(session: SessionDep, email: str = None, phone_number: str = None, skip: int = 0, limit: int = 20):
+    if email:
+        users = await get_user_by_email(session, email, skip=skip, limit=limit)
+    elif phone_number:
+        users = await get_user_by_phone(session, phone_number, skip=skip, limit=limit)
+    else:
+        raise HTTPException(status_code=400, detail="Search query required")
+    
+    if not users:
+        raise HTTPException(status_code=404, detail="User Not Found")
+        
+    return users

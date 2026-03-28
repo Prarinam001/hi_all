@@ -8,11 +8,41 @@ export default function useChatManager(user, api, setConversations, selectedUser
     const [groups, setGroups] = useState([]);
     const [input, setInput] = useState('');
     const [replyTo, setReplyTo] = useState(null);
+    const [userStatuses, setUserStatuses] = useState({});
     const [unreads, setUnreads] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem(`unreads_${user?.id}`) || '{}');
         } catch { return {}; }
     });
+
+    // Helper to add messages to state while ensuring order and no duplicates
+    const upsertMessages = useCallback((listKey, newMessages) => {
+        setMessages(prev => {
+            const currentList = prev[listKey] || [];
+            const merged = [...currentList];
+            
+            const toAdd = Array.isArray(newMessages) ? newMessages : [newMessages];
+            
+            for (const msg of toAdd) {
+                // Check if message already exists by ID (server or local)
+                const msgId = msg.id || msg.server_id;
+                const existingIdx = merged.findIndex(m => (m.id || m.server_id) === msgId);
+                
+                if (existingIdx >= 0) {
+                    // Update existing
+                    merged[existingIdx] = { ...merged[existingIdx], ...msg };
+                } else {
+                    // Add new
+                    merged.push(msg);
+                }
+            }
+            
+            // Sort by timestamp
+            merged.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            
+            return { ...prev, [listKey]: merged };
+        });
+    }, []);
 
     useEffect(() => {
         if (selectedUser) {
@@ -58,9 +88,11 @@ export default function useChatManager(user, api, setConversations, selectedUser
         // 1. Load from local first for instant UI
         const localMsgs = await getLocalMessages(userId, isGroup);
         if (localMsgs && localMsgs.length > 0) {
+            // Ensure strictly sorted by actual date comparison after load
+            const sorted = [...localMsgs].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
             setMessages(prev => ({
                 ...prev,
-                [listKey]: localMsgs.map(m => ({ ...m, isMine: m.sender_id === user.id }))
+                [listKey]: sorted.map(m => ({ ...m, isMine: m.sender_id === user.id }))
             }));
         }
 
@@ -92,6 +124,10 @@ export default function useChatManager(user, api, setConversations, selectedUser
     }, [user, api]);
 
     const handleChatMessage = useCallback((data) => {
+        // Filter out WebRTC signaling messages
+        const signalingTypes = ['offer', 'answer', 'candidate', 'call-reject', 'call-end', 'voice-offer', 'voice-answer'];
+        if (signalingTypes.includes(data.type)) return;
+
         const isSystem = data.content && data.content.startsWith('__SYSTEM__:');
         
         // Skip echo of own normal messages to avoid duplication (already added optimistically in sendMessage)
@@ -108,6 +144,19 @@ export default function useChatManager(user, api, setConversations, selectedUser
             return;
         }
 
+        if (data.type === 'user_status') {
+            setUserStatuses(prev => ({
+                ...prev,
+                [data.user_id]: {
+                    is_online: data.is_online,
+                    last_seen: data.last_seen
+                }
+            }));
+            return;
+        }
+
+        if (data.type === 'pong') return; // Heartbeat response
+
         const otherId = data.sender_id === user.id ? data.recipient_id : data.sender_id;
         const newMsg = {
             ...data,
@@ -115,14 +164,12 @@ export default function useChatManager(user, api, setConversations, selectedUser
             sender_name: data.sender_name || (data.sender_id === user.id ? (user.full_name || user.name) : 'Unknown')
         };
         const listKey = data.group_id ? `group_${data.group_id}` : otherId;
+        
+        // Use upsertMessages to handle sorting and deduplication
+        upsertMessages(listKey, newMsg);
 
         // Save to Local DB
         saveLocalMessage(newMsg).catch(err => console.error("Failed to save message locally", err));
-
-        setMessages(prev => {
-            const list = prev[listKey] || [];
-            return { ...prev, [listKey]: [...list, newMsg] };
-        });
 
         const currentSelectedKey = selectedUser ? (selectedUser.isGroup ? `group_${selectedUser.id}` : selectedUser.id) : null;
         if (listKey !== currentSelectedKey) {
@@ -184,6 +231,14 @@ export default function useChatManager(user, api, setConversations, selectedUser
                         return [newConv, ...prev];
                     }
                 });
+
+                setUserStatuses(prev => ({
+                    ...prev,
+                    [data.sender_id]: {
+                        is_online: data.is_online !== undefined ? data.is_online : true,
+                        last_seen: data.last_seen
+                    }
+                }));
             }
 
             // Update local DB outside of the state setter
@@ -239,6 +294,7 @@ export default function useChatManager(user, api, setConversations, selectedUser
         if (!input || !selectedUser) return;
 
         const msg = {
+            id: Date.now() + Math.random().toString(36).substr(2, 9), // Temp ID to prevent replacement
             type: 'chat',
             content: input,
             sender_id: user.id,
@@ -248,8 +304,8 @@ export default function useChatManager(user, api, setConversations, selectedUser
             recipient_id: selectedUser.isGroup ? null : selectedUser.id,
             group_id: selectedUser.isGroup ? selectedUser.id : null,
             target_id: selectedUser.isGroup ? null : selectedUser.id,
-            timestamp: new Date().toISOString(),
-            reply_to_id: replyTo ? (replyTo.server_id || null) : null,
+            timestamp: (new Date(Date.now() - new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, -1),
+            reply_to_id: replyTo ? (typeof replyTo.id === 'number' ? replyTo.id : (replyTo.server_id || null)) : null,
             reply_to_content: replyTo ? replyTo.content : null,
             reply_to_sender: replyTo ? (replyTo.sender_name || (replyTo.isMine ? (user.full_name || user.name) : 'Unknown')) : null
         };
@@ -306,11 +362,10 @@ export default function useChatManager(user, api, setConversations, selectedUser
             updateLocalDB();
         }
 
-        setMessages(prev => {
-            const listKey = selectedUser.isGroup ? `group_${selectedUser.id}` : selectedUser.id;
-            const list = prev[listKey] || [];
-            return { ...prev, [listKey]: [...list, { ...msg, isMine: true }] };
-        });
+        const listKey = selectedUser.isGroup ? `group_${selectedUser.id}` : selectedUser.id;
+        // Use upsertMessages to handle sorting and deduplication
+        upsertMessages(listKey, { ...msg, isMine: true });
+
         setInput('');
         setReplyTo(null);
     };
@@ -320,9 +375,9 @@ export default function useChatManager(user, api, setConversations, selectedUser
         await saveLocalGroup(newGroup).catch(err => console.error("Failed to save new group locally", err));
     }, []);
 
-    const addMember = useCallback(async (groupId, email) => {
+    const addMember = useCallback(async (groupId, data) => {
         try {
-            const updatedGroup = await addMemberToGroup(groupId, email);
+            const updatedGroup = await addMemberToGroup(groupId, data);
             setGroups(prev => prev.map(g => g.id === groupId ? updatedGroup : g));
             await saveLocalGroup(updatedGroup);
             return updatedGroup;
@@ -371,6 +426,8 @@ export default function useChatManager(user, api, setConversations, selectedUser
         handleChatMessage,
         sendMessage,
         loadLocalMessagesForUser,
-        unreads
+        unreads,
+        userStatuses,
+        setUserStatuses
     };
 }

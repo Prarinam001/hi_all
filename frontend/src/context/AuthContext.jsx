@@ -11,6 +11,11 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const fetchUser = async () => {
+            const token = localStorage.getItem('ha_access_token');
+            if (!token) {
+                setLoading(false);
+                return;
+            }
             try {
                 const res = await api.get('/api/account/profile');
                 setUser(res.data);
@@ -26,6 +31,10 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         const res = await api.post('/api/account/login', { email, password });
+        const { tokens } = res.data;
+        
+        localStorage.setItem('ha_access_token', tokens.ha_access_token);
+        localStorage.setItem('ha_refresh_token', tokens.ha_refresh_token);
         
         // Fetch user immediately to ensure it's available before navigation
         try {
@@ -44,10 +53,13 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         try {
-            await api.post('/api/account/logout');
+            const ha_refresh_token = localStorage.getItem('ha_refresh_token');
+            await api.post('/api/account/logout', { ha_refresh_token });
         } catch (error) {
             console.error("Logout failed", error);
         } finally {
+            localStorage.removeItem('ha_access_token');
+            localStorage.removeItem('ha_refresh_token');
             setUser(null);
         }
     };

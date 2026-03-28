@@ -10,8 +10,8 @@ export const getGroups = async () => {
     return res.data;
 };
 
-export const addMemberToGroup = async (groupId, email) => {
-    const res = await api.post(`/api/chat/groups/${groupId}/members`, { email });
+export const addMemberToGroup = async (groupId, data) => {
+    const res = await api.post(`/api/chat/groups/${groupId}/members`, data);
     return res.data;
 };
 

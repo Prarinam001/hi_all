@@ -3,18 +3,20 @@ from sqlalchemy import select
 from app.db.config import SessionDep
 from app.account.models import User
 from app.account.utils import decode_token
+import logging
 
+logger = logging.getLogger(__name__)
 
 async def get_current_user(session: SessionDep, request: Request):
-    token = request.cookies.get("access_token")
-    if not token:
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing access token",
+            detail="Missing or Invalid Authentication Header",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    token = auth_header.split(" ")[1]
     payload = decode_token(token)
-    # print("payload------------------------: ", payload)
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -22,9 +24,8 @@ async def get_current_user(session: SessionDep, request: Request):
             headers={"WWW-Authenticate": "Bearer"},
         )
     user_id = payload.get("sub")
-    # print("user id------------------------: ", user_id)
     if not user_id:
-        raise HTTPException(
+        raise HTTPException(    
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Token",
             headers={"WWW-Authenticate": "Bearer"},

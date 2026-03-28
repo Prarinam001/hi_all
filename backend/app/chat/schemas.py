@@ -27,7 +27,9 @@ class GroupCreate(BaseModel):
     member_emails: List[str] = []
 
 class AddMemberRequest(BaseModel):
-    email: str
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    user_id: Optional[int] = None
 
 from app.account.schemas import UserOut
 

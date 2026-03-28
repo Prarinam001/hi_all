@@ -1,6 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from typing import List
-from app.chat.services import build_connection_for_conversation, create_group, get_user_groups, add_member_to_group, leave_group, remove_member_from_group
+from app.chat.services import create_group, get_user_groups, add_member_to_group, leave_group, remove_member_from_group
+from app.chat.connectionService import build_connection_for_conversation
 from app.chat.schemas import GroupCreate, GroupResponse, AddMemberRequest
 from app.db.config import SessionDep
 from app.account.models import User
@@ -9,6 +10,8 @@ from app.chat.services import get_conversations
 from app.chat.services import get_messages
 from app.chat.schemas import MessageAck
 from app.chat.services import get_offline_messages, acknowledge_messages, delete_conversation
+from app.account.utils import decode_token
+from fastapi import Query
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
@@ -47,7 +50,7 @@ async def add_group_member(
     Adds a new user to an existing chat group.
     Used by group members to invite others into an ongoing group conversation.
     """
-    return await add_member_to_group(session, group_id, data.email, current_user)
+    return await add_member_to_group(session, group_id, data, current_user)
 
 @router.delete("/groups/{group_id}")
 async def leave_my_group(
@@ -169,11 +172,17 @@ async def ack_messages(
 async def start_conversation(
     websocket: WebSocket, 
     user_id: int,
-    session: SessionDep
+    session: SessionDep,
+    token: str = Query(None)
 ):
-    """
-    Establishes a persistent WebSocket connection for real-time bidirectional communication.
-    Used as the core transport layer for sending and receiving instant messages.
-    """
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    payload = decode_token(token)
+    if not payload or int(payload.get("sub")) != user_id:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await build_connection_for_conversation(websocket, user_id, session)
 

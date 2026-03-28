@@ -63,7 +63,9 @@ export default function Chat() {
         addMember,
         removeMember,
         groupLeave,
-        unreads
+        unreads,
+        userStatuses,
+        setUserStatuses
     } = useChatManager(user, api, setConversations, selectedUser);
 
     useEffect(() => {
@@ -82,19 +84,36 @@ export default function Chat() {
         }
     }, [selectedUser, loadLocalMessagesForUser]);
 
+    useEffect(() => {
+        if (conversations && conversations.length > 0) {
+            const initialStatuses = {};
+            conversations.forEach(c => {
+                if (c.other_user_id) {
+                    initialStatuses[c.other_user_id] = {
+                        is_online: c.is_online || false,
+                        last_seen: c.last_seen
+                    };
+                }
+            });
+            setUserStatuses(prev => ({ ...initialStatuses, ...prev }));
+        }
+    }, [conversations, setUserStatuses]);
+
     const sendRef = useRef(null);
     const { send } = useWebSocket(user?.id, (data) => {
         if (!data) return;
-        if (data.type === 'chat') {
-            handleChatMessage(data);
-        } else if (data.type === 'offer' || data.type === 'voice-offer') {
+        // Relay all messages to chat manager (handles chat, user_status, pong, etc.)
+        handleChatMessage(data);
+
+        // Still handle signaling and specific UI logic here if needed
+        if (data.type === 'offer' || data.type === 'voice-offer') {
             callManager.handleOffer(data);
         } else if (data.type === 'answer' || data.type === 'voice-answer') {
             callManager.handleAnswer(data);
         } else if (data.type === 'candidate') {
             callManager.handleCandidate(data);
         } else if (data.type === 'call-end') {
-            callManager.endCall();
+            callManager.handleCallEnd();
         } else if (data.type === 'call-reject') {
             callManager.handleCallReject();
         }
@@ -140,10 +159,10 @@ export default function Chat() {
         try {
             await api.delete(`/api/chat/conversations/${otherUserId}`);
             setConversations(prev => prev.filter(c => c.other_user_id !== otherUserId));
-            
+
             // Delete localized db logs
             await deleteLocalConversationData(otherUserId);
-            
+
             if (selectedUser && selectedUser.id === otherUserId && !selectedUser.isGroup) {
                 setSelectedUser(null);
             }
@@ -165,6 +184,7 @@ export default function Chat() {
                     copiedEmail={copiedEmail}
                     onCopy={copyEmailToClipboard}
                     unreads={unreads}
+                    userStatuses={userStatuses}
                     onGroupCreated={(g) => { addGroup(g); setSelectedUser({ ...g, isGroup: true }); }}
                     onDeleteConversation={handleDeleteConversation}
                 />
@@ -185,6 +205,7 @@ export default function Chat() {
                     copiedEmail={copiedEmail}
                     onCopy={copyEmailToClipboard}
                     unreads={unreads}
+                    userStatuses={userStatuses}
                     onClose={() => setMobileOpen(false)}
                     onGroupCreated={(g) => { addGroup(g); setSelectedUser({ ...g, isGroup: true }); }}
                     onDeleteConversation={handleDeleteConversation}
@@ -197,13 +218,14 @@ export default function Chat() {
                         <ChatHeader
                             user={user}
                             selectedUser={selectedUser}
+                            userStatus={userStatuses[selectedUser.id]}
                             startCall={callManager.startCall}
                             startVoiceCall={() => callManager.startCall('audio')}
                             copiedEmail={copiedEmail}
                             onCopy={copyEmailToClipboard}
                             onSidebarToggle={() => setMobileOpen(true)}
-                            onAddMember={async (groupId, email) => {
-                                const updated = await addMember(groupId, email);
+                            onAddMember={async (groupId, info) => {
+                                const updated = await addMember(groupId, info);
                                 setSelectedUser({ ...updated, isGroup: true });
                             }}
                             onRemoveMember={async (groupId, userId) => {
@@ -238,24 +260,24 @@ export default function Chat() {
                             handleEmojiButtonClick={handleEmojiButtonClick}
                             handleEmojiClose={handleEmojiClose}
                         />
-
-                        <CallOverlays
-                            user={user}
-                            isInCall={callManager.isInCall}
-                            callType={callManager.callType}
-                            localVideoRef={callManager.localVideo}
-                            remoteVideoRef={callManager.remoteVideo}
-                            remoteAudioRef={callManager.remoteAudio}
-                            endCall={callManager.endCall}
-                            incomingCall={callManager.incomingCall}
-                            acceptCall={callManager.acceptCall}
-                            rejectCall={callManager.rejectCall}
-                            selectedUser={selectedUser}
-                        />
                     </>
                 ) : (
                     <EmptyChatState onSidebarToggle={() => setMobileOpen(true)} />
                 )}
+
+                <CallOverlays
+                    user={user}
+                    isInCall={callManager.isInCall}
+                    callType={callManager.callType}
+                    localVideoRef={callManager.localVideo}
+                    remoteVideoRef={callManager.remoteVideo}
+                    remoteAudioRef={callManager.remoteAudio}
+                    endCall={callManager.endCall}
+                    incomingCall={callManager.incomingCall}
+                    acceptCall={callManager.acceptCall}
+                    rejectCall={callManager.rejectCall}
+                    selectedUser={selectedUser}
+                />
             </Box>
         </Box>
     );

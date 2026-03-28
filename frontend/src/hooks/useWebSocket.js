@@ -18,13 +18,22 @@ export default function useWebSocket(userId, onMessage, enabled = true) {
         let mounted = true;
 
         const connect = () => {
-            const socket = new WebSocket(`ws://localhost:8000/api/chat/ws/${userId}`);
+            const wsBaseUrl = import.meta.env.VITE_BACKEND_BASE_URL.replace(/^http/, 'ws');
+            const token = localStorage.getItem('ha_access_token');
+            const socket = new WebSocket(`${wsBaseUrl}/api/chat/ws/${userId}?token=${token}`);
             wsRef.current = socket;
 
             socket.onopen = () => {
                 reconnectRef.current = 0;
                 setReadyState(socket.readyState);
-                //console.log('WS connected', userId);
+                // Heartbeat
+                const heartbeatInterval = setInterval(() => {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ type: 'ping' }));
+                    } else {
+                        clearInterval(heartbeatInterval);
+                    }
+                }, 30000);
             };
 
             socket.onmessage = (event) => {

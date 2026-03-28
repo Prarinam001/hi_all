@@ -190,7 +190,9 @@ export default function CallOverlays({ user, isInCall, callType, localVideoRef, 
             {!isInCall && incomingCall && (
                 <Paper sx={styles.incomingCallPaper}>
                     <Typography variant="body1" textAlign="center" sx={{ fontWeight: 'bold', wordBreak: 'break-word' }}>Incoming {callType === 'audio' ? 'Voice' : 'Video'} Call</Typography>
-                    <Typography variant="subtitle1" textAlign="center" sx={{ color: 'primary.main' }}>from {selectedUser?.full_name}</Typography>
+                    <Typography variant="subtitle1" textAlign="center" sx={{ color: 'primary.main' }}>
+                        from {incomingCall?.sender_name || 'Unknown'}
+                    </Typography>
                     <Box sx={styles.fabContainer}>
                         <Fab size="small" color="success" onClick={acceptCall} sx={{ width: 56, height: 56 }}>✓</Fab>
                         <Fab size="small" color="error" onClick={rejectCall} sx={{ width: 56, height: 56 }}>✕</Fab>

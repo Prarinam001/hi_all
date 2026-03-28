@@ -40,7 +40,22 @@ const styles = {
     list: {
         flex: 1,
         overflowY: 'auto',
-        px: 1
+        px: 1,
+        '&::-webkit-scrollbar': {
+            width: '6px'
+        },
+        '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent'
+        },
+        '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#90ee90', // Light green
+            borderRadius: '10px',
+            border: '2px solid transparent',
+            backgroundClip: 'content-box'
+        },
+        '&::-webkit-scrollbar-thumb:hover': {
+            backgroundColor: '#7cfc00' // slightly darker on hover
+        }
     },
     listItemIcon: {
         minWidth: 32
@@ -52,7 +67,7 @@ const styles = {
     }
 };
 
-export default function Sidebar({ user, conversations = [], groups = [], unreads = {}, onSelect, onLogout, copiedEmail, onCopy, onClose, onGroupCreated, onDeleteConversation }) {
+export default function Sidebar({ user, conversations = [], groups = [], unreads = {}, userStatuses = {}, onSelect, onLogout, copiedEmail, onCopy, onClose, onGroupCreated, onDeleteConversation }) {
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showGroups, setShowGroups] = useState(true);
     const [showDirect, setShowDirect] = useState(true);
@@ -166,17 +181,51 @@ export default function Sidebar({ user, conversations = [], groups = [], unreads
                                         </IconButton>
                                     }
                                 >
-                                    <Badge color="error" variant="dot" invisible={!unreads[conv.other_user_id]} sx={{ width: '100%', '& .MuiBadge-badge': { right: 10, top: 20 } }}>
+                                    <ListItemAvatar sx={{ position: 'relative' }}>
+                                        <Badge
+                                            overlap="circular"
+                                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                            variant="dot"
+                                            sx={{
+                                                '& .MuiBadge-badge': {
+                                                    backgroundColor: '#44b700',
+                                                    color: '#44b700',
+                                                    boxShadow: `0 0 0 2px ${styles.sidebarContainer.bgcolor || '#111b21'}`,
+                                                    '&::after': {
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        borderRadius: '50%',
+                                                        animation: 'ripple 1.2s infinite ease-in-out',
+                                                        border: '1px solid currentColor',
+                                                        content: '""',
+                                                    },
+                                                },
+                                                '@keyframes ripple': {
+                                                    '0%': { transform: 'scale(.8)', opacity: 1 },
+                                                    '100%': { transform: 'scale(2.4)', opacity: 0 },
+                                                },
+                                            }}
+                                            invisible={!userStatuses[conv.other_user_id]?.is_online}
+                                        >
+                                            <Avatar>{(conv.other_user_name || conv.name || '?')[0].toUpperCase()}</Avatar>
+                                        </Badge>
+                                    </ListItemAvatar>
+                                    <Badge color="error" variant="dot" invisible={!unreads[conv.other_user_id]} sx={{ width: '100%', '& .MuiBadge-badge': { right: 10, top: 10 } }}>
                                         <ListItemText 
                                             primary={conv.other_user_name || conv.name || `User ${conv.other_user_id}`} 
                                             secondary={
                                                 <Box component="span" sx={{ display: 'flex', flexDirection: 'column', mt: 0.5 }}>
-                                                    <Typography component="span" variant="body2" color="text.secondary">
-                                                        {conv.other_user_email || 'No email'}
+                                                    <Typography component="span" variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                                                        {conv.other_user_email}
                                                     </Typography>
-                                                    <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', mt: 0.25 }}>
-                                                        {conv.other_user_phone_number || 'No phone number'}
-                                                    </Typography>
+                                                    {conv.other_user_phone_number && (
+                                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', mt: 0.25 }}>
+                                                            {conv.other_user_phone_number}
+                                                        </Typography>
+                                                    )}
                                                 </Box>
                                             } 
                                             secondaryTypographyProps={{ component: 'div' }} 

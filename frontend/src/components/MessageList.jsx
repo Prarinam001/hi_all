@@ -1,6 +1,6 @@
-import React from 'react';
-import { Box, Paper, Typography, Avatar, IconButton } from '@mui/material';
-import { Reply } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Box, Paper, Typography, IconButton } from '@mui/material';
+import { Reply, ArrowDown } from 'lucide-react';
 
 const styles = {
     container: {
@@ -9,7 +9,24 @@ const styles = {
         p: 2,
         display: 'flex',
         flexDirection: 'column',
-        gap: 1
+        gap: 1,
+        // Remove scrollBehavior: 'smooth' from here as it fights manual scrolling
+    },
+    scrollBtn: {
+        position: 'absolute',
+        bottom: 16,
+        right: 24,
+        width: 40,
+        height: 40,
+        bgcolor: 'primary.main',
+        color: 'white',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        '&:hover': {
+            bgcolor: 'primary.dark',
+            transform: 'translateY(-2px)'
+        },
+        zIndex: 10,
+        transition: 'all 0.3s ease'
     },
     messageRow: {
         display: 'flex',
@@ -60,110 +77,157 @@ const styles = {
 };
 
 export default function MessageList({ messages = [], selectedUser, onReplyClick }) {
+    const scrollRef = useRef(null);
+    const [showScrollBtn, setShowScrollBtn] = useState(false);
+
+    const handleScroll = () => {
+        if (!scrollRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+        // Show button if we've scrolled up more than 300px
+        setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 300);
+    };
+
+    const scrollToBottom = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTo({
+                top: scrollRef.current.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    // Initial scroll to bottom when user is selected
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [selectedUser?.id]);
+
+    // Auto-scroll on new messages ONLY if we're not currently looking at history
+    useEffect(() => {
+        if (scrollRef.current && !showScrollBtn) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [messages, showScrollBtn]);
+
     return (
-        <Box sx={styles.container}>
-            {messages.map((msg, i) => {
-                const isSystem = msg.content && msg.content.startsWith('__SYSTEM__:');
-                const contentText = isSystem ? msg.content.replace('__SYSTEM__:', '') : msg.content;
-                
-                if (isSystem) {
+        <Box sx={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+            <Box 
+                ref={scrollRef} 
+                sx={styles.container} 
+                onScroll={handleScroll}
+            >
+                {messages.map((msg, i) => {
+                    const isSystem = msg.content && msg.content.startsWith('__SYSTEM__:');
+                    const contentText = isSystem ? msg.content.replace('__SYSTEM__:', '') : msg.content;
+                    
+                    if (isSystem) {
+                        return (
+                            <Box key={i} sx={{ display: 'flex', width: '100%', justifyContent: 'center', my: 1.5 }}>
+                                <Typography variant="caption" sx={{ 
+                                    bgcolor: 'rgba(0,0,0,0.4)', 
+                                    color: 'white', 
+                                    px: 2, 
+                                    py: 0.5, 
+                                    borderRadius: 4, 
+                                    fontSize: '0.75rem',
+                                    opacity: 0.85
+                                }}>
+                                    {contentText}
+                                </Typography>
+                            </Box>
+                        );
+                    }
+
+                    const hasInlineReply = !!msg.reply_to_content;
+                    let repliedMsg = null;
+                    if (hasInlineReply) {
+                        repliedMsg = {
+                            content: msg.reply_to_content,
+                            sender_name: msg.reply_to_sender,
+                            isMine: false
+                        };
+                    } else if (msg.reply_to_id) {
+                        repliedMsg = messages.find(m => m.id === msg.reply_to_id);
+                    }
                     return (
-                        <Box key={i} sx={{ display: 'flex', width: '100%', justifyContent: 'center', my: 1.5 }}>
-                            <Typography variant="caption" sx={{ 
-                                bgcolor: 'rgba(0,0,0,0.4)', 
-                                color: 'white', 
-                                px: 2, 
-                                py: 0.5, 
-                                borderRadius: 4, 
-                                fontSize: '0.75rem',
-                                opacity: 0.85
+                        <Box key={i} sx={{
+                            display: 'flex',
+                            width: '100%',
+                            justifyContent: msg.isMine ? 'flex-end' : 'flex-start',
+                            mb: 1
+                        }}>
+                            <Box sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                maxWidth: '85%',
+                                '&:hover .reply-btn': { opacity: 1 }
                             }}>
-                                {contentText}
-                            </Typography>
+                                {msg.isMine && (
+                                    <IconButton 
+                                        className="reply-btn" 
+                                        size="small" 
+                                        sx={{ opacity: 0, transition: '0.2s', flexShrink: 0 }}
+                                        onClick={() => onReplyClick(msg)}
+                                    >
+                                        <Reply size={16} />
+                                    </IconButton>
+                                )}
+
+                                <Paper sx={{
+                                    p: 1, px: 2,
+                                    bgcolor: msg.isMine ? 'primary.dark' : 'background.paper',
+                                    borderRadius: 2,
+                                    wordBreak: 'break-word',
+                                    maxWidth: '100%'
+                                }}>
+                                    {repliedMsg && (
+                                        <Box sx={styles.replyBox}>
+                                            <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                                                {hasInlineReply ? repliedMsg.sender_name : (repliedMsg.isMine ? 'You' : (repliedMsg.sender_name || 'Unknown'))}
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ opacity: 0.8, fontSize: '0.8rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                {repliedMsg.content}
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                    {!msg.isMine && (
+                                        <Typography variant="caption" sx={styles.senderName}>
+                                            {msg.sender_name || selectedUser?.full_name || selectedUser?.name || 'Unknown'}
+                                        </Typography>
+                                    )}
+                                    <Typography variant="body1">{contentText}</Typography>
+                                    <Typography variant="caption" sx={styles.timestamp}>
+                                        {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                    </Typography>
+                                </Paper>
+
+                                {!msg.isMine && (
+                                    <IconButton 
+                                        className="reply-btn" 
+                                        size="small" 
+                                        sx={{ opacity: 0, transition: '0.2s', flexShrink: 0 }}
+                                        onClick={() => onReplyClick(msg)}
+                                    >
+                                        <Reply size={16} />
+                                    </IconButton>
+                                )}
+                            </Box>
                         </Box>
                     );
-                }
-
-                const hasInlineReply = !!msg.reply_to_content;
-                let repliedMsg = null;
-                if (hasInlineReply) {
-                    repliedMsg = {
-                        content: msg.reply_to_content,
-                        sender_name: msg.reply_to_sender,
-                        isMine: false
-                    };
-                } else if (msg.reply_to_id) {
-                    repliedMsg = messages.find(m => m.id === msg.reply_to_id);
-                }
-                return (
-                    <Box key={i} sx={{
-                        display: 'flex',
-                        width: '100%',
-                        justifyContent: msg.isMine ? 'flex-end' : 'flex-start',
-                        mb: 1
-                    }}>
-                        <Box sx={{
-                            display: 'flex',
-                            alignItems: 'center', // Vertically center reply button
-                            gap: 1,
-                            maxWidth: '85%',
-                            '&:hover .reply-btn': { opacity: 1 }
-                        }}>
-                            {/* Render reply button explicitly on the left for sender messages */}
-                            {msg.isMine && (
-                                <IconButton 
-                                    className="reply-btn" 
-                                    size="small" 
-                                    sx={{ opacity: 0, transition: '0.2s', flexShrink: 0 }}
-                                    onClick={() => onReplyClick(msg)}
-                                >
-                                    <Reply size={16} />
-                                </IconButton>
-                            )}
-
-                            <Paper sx={{
-                                p: 1, px: 2,
-                                bgcolor: msg.isMine ? 'primary.dark' : 'background.paper',
-                                borderRadius: 2,
-                                wordBreak: 'break-word',
-                                maxWidth: '100%'
-                            }}>
-                                {repliedMsg && (
-                                    <Box sx={styles.replyBox}>
-                                        <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                                            {hasInlineReply ? repliedMsg.sender_name : (repliedMsg.isMine ? 'You' : (repliedMsg.sender_name || 'Unknown'))}
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ opacity: 0.8, fontSize: '0.8rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                            {repliedMsg.content}
-                                        </Typography>
-                                    </Box>
-                                )}
-                                {!msg.isMine && (
-                                    <Typography variant="caption" sx={styles.senderName}>
-                                        {msg.sender_name || selectedUser?.full_name || selectedUser?.name || 'Unknown'}
-                                    </Typography>
-                                )}
-                                <Typography variant="body1">{contentText}</Typography>
-                                <Typography variant="caption" sx={styles.timestamp}>
-                                    {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                </Typography>
-                            </Paper>
-
-                            {/* Render reply button explicitly on the right for receiver messages */}
-                            {!msg.isMine && (
-                                <IconButton 
-                                    className="reply-btn" 
-                                    size="small" 
-                                    sx={{ opacity: 0, transition: '0.2s', flexShrink: 0 }}
-                                    onClick={() => onReplyClick(msg)}
-                                >
-                                    <Reply size={16} />
-                                </IconButton>
-                            )}
-                        </Box>
-                    </Box>
-                );
-            })}
+                })}
+            </Box>
+            
+            {showScrollBtn && (
+                <IconButton 
+                    sx={styles.scrollBtn}
+                    onClick={scrollToBottom}
+                    aria-label="scroll to bottom"
+                >
+                    <ArrowDown size={20} />
+                </IconButton>
+            )}
         </Box>
     );
 }

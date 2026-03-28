@@ -3,6 +3,7 @@ import { Box, Avatar, Typography, IconButton, Menu, MenuItem, Dialog, DialogTitl
 import { Video, Phone, MoreVertical, Menu as MenuIcon, UserPlus, LogOut, Users } from 'lucide-react';
 import EmailTooltip from './EmailTooltip';
 import GroupMembersModal from './GroupMembersModal';
+import UserSearch from './UserSearch';
 
 const styles = {
     header: {
@@ -43,28 +44,50 @@ export default function ChatHeader({
     onSidebarToggle,
     onAddMember,
     onRemoveMember,
-    onLeaveGroup
+    onLeaveGroup,
+    userStatus
 }) {
+    const formatLastSeen = (dateString) => {
+        if (!dateString) return 'recently';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return 'recently';
+            
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) {
+                return `today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            } else if (diffDays === 1) {
+                return `yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            } else {
+                return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+        } catch (e) {
+            return 'recently';
+        }
+    };
     const [anchorEl, setAnchorEl] = useState(null);
     const [addMemberOpen, setAddMemberOpen] = useState(false);
     const [membersOpen, setMembersOpen] = useState(false);
-    const [email, setEmail] = useState('');
 
     const isCreator = selectedUser?.isGroup && user?.id === selectedUser?.created_by;
 
     const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
     const handleMenuClose = () => setAnchorEl(null);
 
-    const handleAddMember = async () => {
-        if (!email) return;
+    const handleAddMember = async (targetUser) => {
+        if (!targetUser) return;
         try {
-            await onAddMember(selectedUser.id, email);
+            await onAddMember(selectedUser.id, { user_id: targetUser.id });
             setAddMemberOpen(false);
-            setEmail('');
             handleMenuClose();
-            alert("Member added successfully");
+            alert(`Added ${targetUser.name || targetUser.full_name} to the group`);
         } catch (err) {
-            alert(err.response?.data?.detail || "Failed to add member");
+            const errorMsg = err.response?.data?.detail;
+            const finalMsg = typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : (errorMsg || "Failed to add member");
+            alert(finalMsg);
         }
     };
 
@@ -86,7 +109,23 @@ export default function ChatHeader({
                 <EmailTooltip email={selectedUser?.email} copiedEmail={copiedEmail} onCopy={onCopy}>
                     <Avatar sx={styles.avatar}>{(selectedUser?.name || selectedUser?.full_name)?.[0]?.toUpperCase()}</Avatar>
                 </EmailTooltip>
-                <Typography variant="subtitle1" fontWeight="bold">{selectedUser?.name || selectedUser?.full_name}</Typography>
+                <Box>
+                    <Typography variant="subtitle1" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
+                        {selectedUser?.name || selectedUser?.full_name}
+                    </Typography>
+                    {!selectedUser?.isGroup && (
+                        <Typography 
+                            variant="caption" 
+                            sx={{ 
+                                color: userStatus?.is_online ? 'success.main' : 'text.secondary',
+                                fontWeight: userStatus?.is_online ? 'bold' : 'normal',
+                                display: 'block'
+                            }}
+                        >
+                            {userStatus?.is_online ? 'online' : `last seen ${formatLastSeen(userStatus?.last_seen)}`}
+                        </Typography>
+                    )}
+                </Box>
             </Box>
             <Box sx={styles.actionSection}>
                 {!selectedUser?.isGroup && (
@@ -120,32 +159,24 @@ export default function ChatHeader({
                 </Menu>
             </Box>
 
-            <Dialog open={addMemberOpen} onClose={() => setAddMemberOpen(false)}>
+            <Dialog open={addMemberOpen} onClose={() => setAddMemberOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Add Member to Group</DialogTitle>
-                <DialogContent>
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        label="User Email"
-                        type="email"
-                        fullWidth
-                        variant="outlined"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                    />
+                <DialogContent dividers sx={{ p: 0 }}>
+                    <Box sx={{ minHeight: '350px' }}>
+                        <UserSearch onUserSelect={handleAddMember} />
+                    </Box>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setAddMemberOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAddMember} variant="contained">Add</Button>
                 </DialogActions>
             </Dialog>
 
-            <GroupMembersModal 
-                open={membersOpen} 
-                onClose={() => setMembersOpen(false)} 
-                group={selectedUser} 
-                user={user} 
-                onRemoveMember={handleRemoveMember} 
+            <GroupMembersModal
+                open={membersOpen}
+                onClose={() => setMembersOpen(false)}
+                group={selectedUser}
+                user={user}
+                onRemoveMember={handleRemoveMember}
             />
         </Box>
     );

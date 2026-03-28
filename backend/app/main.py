@@ -8,17 +8,17 @@ from decouple import config
 app = FastAPI(title="Hi ALL App")
 
 origins = [
-    config("FRONTEND_URL"), 
-    config("CLOUDFLARE_DEFAULT_PAGE_URL")
+    config("FRONTEND_URL").rstrip("/"), 
+    config("CLOUDFLARE_DEFAULT_PAGE_URL").rstrip("/")
 ]
-
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Set-Cookie", "Access-Control-Allow-Headers", "Access-Control-Allow-Origin", "Authorization"],
+    expose_headers=["*"],
 )
 
 @app.get("/")

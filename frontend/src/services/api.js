@@ -4,41 +4,54 @@ const backendBaseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
 
 const api = axios.create({
     baseURL: backendBaseUrl,
-    //baseURL: 'http://localhost:8000',
-    withCredentials: true, // Enable cookies for auth
 });
 
-// Response interceptor to automatically refresh tokens and protect against SPA routing traps
+// Request interceptor to attach the access token
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('ha_access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// Response interceptor to automatically refresh tokens
 api.interceptors.response.use(
     (response) => {
-        // Protect against accidental Cloudflare Page SPA catch-all returns (HTML instead of JSON API responses)
         if (response.headers['content-type'] && response.headers['content-type'].includes('text/html')) {
-            return Promise.reject(new Error("API returned HTML instead of JSON. Your VITE_BACKEND_BASE_URL is likely missing or misconfigured in Cloudflare."));
+            return Promise.reject(new Error("API returned HTML instead of JSON."));
         }
         return response;
     },
     async (error) => {
         const originalRequest = error.config;
 
-        // If error is 401 Unauthorized, we haven't retried yet, and we aren't already trying to login/refresh
         if (
             error.response?.status === 401 &&
             !originalRequest._retry &&
-            // avoid refreshing if the request is already a refresh/login req
-            // check for both with and without trailing slash or baseurl
             !originalRequest.url?.includes('/api/account/refresh') &&
             !originalRequest.url?.includes('/api/account/login')
         ) {
             originalRequest._retry = true;
             try {
-                // Attempt to refresh token
-                await api.post('/api/account/refresh');
+                const ha_refresh_token = localStorage.getItem('ha_refresh_token');
+                const res = await api.post('/api/account/refresh', { ha_refresh_token });
+                const { tokens } = res.data;
 
-                // If refresh is successful, retry the original request
+                localStorage.setItem('ha_access_token', tokens.ha_access_token);
+                // localStorage.setItem('ha_refresh_token', tokens.refresh_token); // Update if server rotates it
+
                 return api(originalRequest);
             } catch (refreshError) {
-                // Refresh failed (e.g. refresh token expired), return the error
-                // The frontend will naturally log the user out because the request will fail
+                // If refresh fails, logout
+                localStorage.removeItem('ha_access_token');
+                localStorage.removeItem('ha_refresh_token');
+                if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/signup')) {
+                    window.location.href = '/login';
+                }
                 return Promise.reject(refreshError);
             }
         }
