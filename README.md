@@ -33,7 +33,7 @@ Ensure you have the following frameworks globally installed on your system befor
 - **Python**: v3.9 or newer
 - **uv**: The rust-based python package installer. (`pip install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - **MySQL Database Server** running locally or remotely.
-
+- **Redis Database Server** running locally or remotely.
 ---
 
 ## 🔧 Setup Instructions
@@ -75,6 +75,8 @@ Ensure you have the following frameworks globally installed on your system befor
    DB_HOST=localhost
    DB_PORT=3306
    DB_NAME=chat_database
+
+   REDIS_URL = "redis://....."
    ```
 5. Build your database tables using Alembic migrations:
    ```bash
@@ -127,10 +129,14 @@ chatApp/
 │   │   ├── account/       # JWT Auth logic, User Pydantic schemas, routing.
 │   │   ├── chat/          # WS Connection dispatchers, groups, real-time message pipelines.
 │   │   ├── db/            # SQLAlchemy async metadata and MySQL TCP initializations.
+│   │   ├── tracking/      # User presence tracking (online/offline status) using Redis.
+│   │   ├── services/      # Business logic services (e.g., User management).
 │   │   └── main.py        # Central FastAPI mount point
+│   ├── alembic/           # SQL migration versioning and schema transition logic.
 │   ├── tests/             # Pytest Async suites validating isolated API triggers.
 │   ├── .env               # Server Database environment tokens (Hidden)
 │   └── requirements.txt
+|
 ├── frontend/
 │   ├── src/
 │   │   ├── components/    # Reusable React UI forms, Modals, Call Overlays, Toolbars.
@@ -143,7 +149,9 @@ chatApp/
 │   ├── index.html
 │   ├── vite.config.js
 │   └── package.json
-└── README.md              # Project Documentation Reference
+|
+├── sql_scripts/       # SQL scripts for manual database creation and table setup.
+└── README.md          # Project Documentation Reference
 ```
 
 ## 🧪 Testing
