@@ -16,7 +16,6 @@ ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
 DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-# DATABASE_URL = "sqlite+aiosqlite:///./app.db"
 
 engine = create_async_engine(
     DATABASE_URL, 
